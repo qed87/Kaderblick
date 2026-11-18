@@ -21,11 +21,11 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | **Team** | Ein Team stellt eine Gruppe von Spielern einer Saison dar. Ein Team hat einen Namen, eine Spielklasse, eine Saison im Format `JJJJ_JJ` (z. B. `2026_27`, angezeigt als `2026/27`), ein optionales Feld Trainer (Namen der Trainer als Freitext; personenbezogen, deshalb als Datei `./data/team/{teamId}/coaches.txt`) und ein optionales Wappen/Foto. Kader, Termine und Bewertungen gehören immer genau zu einem Team. Teams haben einen eindeutigen Schlüssel (fortlaufende Nummer). Name und Saison sollten möglichst eindeutig sein, aber seltene Verstöße gegen diese Regel werden in Kauf genommen.  |
 | **Aktives Team** | Das Team, das ein Trainer gerade bearbeitet. Es wird pro Trainer im Backend gespeichert (siehe Trainer) und gilt damit auf allen Endgeräten des Trainers. Die Einstellung bleibt über mehrere Besuche hinweg erhalten. |
 | **Spieler** | Spieler werden Teams über den Kader zugewiesen. Da Events unveränderlich sind und wir DSGVO-konform die Löschung von persönlichen Daten abbilden wollen, sollen Spielerprofile auf dem Dateisystem abgelegt werden. Jeder Spieler erhält beim Anlegen eine zufällige, unveränderliche `playerId` (UUID). Sie wird nicht aus personenbezogenen Daten abgeleitet, damit Events nach dem Löschen des Profils keinen Rückschluss auf die Person zulassen und Korrekturen an Name oder Geburtsdatum die Identität nicht ändern. Für das Profil wird der Pfad `./data/player/{playerId}` vorgesehen. Das Verzeichnis enthält dann eine `profile.json` mit Name, Vorname, Geburtsdatum, starker Fuß (rechts, links, beide) und `photo.jpg` (Originalbild) sowie `photo-cropped.jpg` (zugeschnittenes Spielerbild). |
-| **Kaderspieler** | Ein Spieler der einem Team zugewiesen ist. Er referenziert ein Spielerprofil über die `playerId` und weist diesem zusätzlich eine Rückennummer, Position (TW, AB, MF, ST) sowie aktiv/inaktiv zu. |
+| **Kaderspieler** | Ein Spieler der einem Team zugewiesen ist. Er referenziert ein Spielerprofil über die `playerId` und weist diesem zusätzlich eine Rückennummer, Position (TW, AB, MF, ST, AR für Allrounder; optional) sowie aktiv/inaktiv zu. |
 | **Trainer** | Sind Nutzer der App. Jeder Trainer ist in der Trainer-Konfiguration (siehe [8.1](#81-konfiguration)) mit Trainer-Id (E-Mail), Name und eigenem Zugangsschlüssel hinterlegt. E-Mail und Name sind personenbezogene Daten und stehen deshalb nie in Events. Mit dem Zugangsschlüssel authentifiziert sich ein Trainer im Backend. Die Einstellungen eines Trainers werden unter `./data/trainer/{trainerId}/settings.json` abgelegt. Dort werden das aktive Team, die Trainingszeit (Default 90 min) und die Standard-Spielzeit (Default 12 min, Vorbelegung der gespielten Minuten in der Spielbewertung) hinterlegt. |
 | **Zugangsschlüssel** | Ein persönliches Geheimnis je Trainer, mit dem er sich am Backend anmeldet. Beim Login prüft das Backend den Schlüssel gegen die Trainer-Konfiguration und setzt bei Erfolg ein Session-Cookie (siehe Sitzung). Der Schlüssel selbst wird danach nicht mehr übertragen. |
 | **Sitzung** | Ein signiertes und verschlüsseltes Session-Cookie (`@fastify/secure-session`) mit `trainerId` und Ablaufzeit. Cookie-Attribute: `HttpOnly`, `Secure`, `SameSite=Strict`, `Max-Age` von 30 Tagen. Die Ablaufzeit wird serverseitig geprüft; nach Ablauf oder Abmelden ist eine erneute Anmeldung nötig. `Secure` setzt HTTPS voraus. |
-| **Spieltag** | Ein Spieltag ist ein bewertbares Ereignis in der Anwendung. Es legt Datum, optional eine Spieltag-Nummer, Gegner, Ort (Heim, Auswärts, Neutral), Wettbewerb (Liga, Pokal, Test, Turnier), Notizen und Ergebnis (Tore Team, Tore Gegner) fest. |
+| **Spieltag** | Ein Spieltag ist ein bewertbares Ereignis in der Anwendung. Es legt ein Datum fest, optional außerdem Spieltag-Nummer, Gegner, Ort (Heim, Auswärts, Neutral), Wettbewerb (Liga, Pokal, Test, Turnier), Notizen und Ergebnis (Tore Team, Tore Gegner). |
 | **Training** | Eine Trainingseinheit ist ein weiteres, bewertbares Ereignis in der Anwendung. Es legt Datum, Dauer, Thema und Schwerpunkte (z. B. Technik, Taktik, Kondition) sowie Notizen fest. |
 | **Bewertung** | Es werden zwei Arten von Bewertungen unterschieden: Trainingsbewertung und Spielbewertung. Eine Trainingsbewertung erfasst die Leistung eines Spielers bei einer Trainingseinheit (Training). Eine Spielbewertung erfasst die Leistung eines Spielers an einem Spieltag. Eine Bewertung ist eindeutig durch Termin und Spieler bestimmt und hat keine eigene ID. Eine Spielbewertung enthält den Einsatz (Startelf, Eingewechselt, Nicht dabei), die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers), Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Tore, Vorlagen, Paraden und Karten (Gelb, Gelb-Rot, Rot) sowie einen optionalen Kommentar. Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet. Eine Trainingsbewertung enthält Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Anwesenheit (Anwesend, Verspätet, Entschuldigt und Unentschuldigt) und einen optionalen Kommentar. |
 | **Kommentar / Notiz** | Freitext zu einer Bewertung oder Spieltag/Training. Freitexte gelten als personenbezogen. Daher werden sie nicht in Events gespeichert, sondern auf dem Dateisystem. Kommentare zu Bewertungen werden je Termin und Spieler unter `./data/team/{teamId}/match/{matchId}/comments/{playerId}.txt` bzw. `./data/team/{teamId}/training/{trainingId}/comments/{playerId}.txt` gespeichert. Notizen zu Spieltagen oder Trainings werden hingegen unter `./data/team/{teamId}/match/{matchId}/notes.txt` oder `./data/team/{teamId}/training/{trainingId}/notes.txt` gespeichert. |
@@ -64,7 +64,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | ID-Vergabe | Alle IDs vergibt das Backend: Teams eine fortlaufende Nummer, Spieler, Spieltage und Trainings eine zufällige UUID. |
 | Einsatz im Spiel | Startelf, Eingewechselt oder Nicht dabei, dazu die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers). Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. |
 | Teilnahme am Training | Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet, nicht bei Entschuldigt oder Unentschuldigt. |
-| Fachlich feine Events | Je fachlicher Änderung ein Event (z. B. `MatchPerformanceGraded`, `GoalsRecorded`, `TeamRenamed`), kein Event je Formular. Ändern zwei Trainer verschiedene Werte derselben Bewertung, überschreiben sie sich nicht. |
+| Fachlich feine Events | Je fachlicher Änderung ein Event (z. B. `MatchPerformanceGraded`, `GoalsRecorded`, `TeamRenamed`), kein Event je Formular. Werte, die sich nicht geändert haben, erzeugen keine Events; so bleibt die Historie aussagekräftig. |
 | Einsatz zuerst | Leistungswerte können erst erfasst werden, wenn Einsatz (Startelf, Eingewechselt) bzw. Anwesenheit (Anwesend, Verspätet) erfasst ist. Es gibt keine automatische Erfassung des Einsatzes. |
 | Werte verfallen bei Nicht dabei | Wird ein Spieler auf Nicht dabei, Entschuldigt oder Unentschuldigt gesetzt, verfallen seine Leistungswerte für diesen Termin. Wird er danach wieder als Startelf, Eingewechselt, Anwesend oder Verspätet erfasst, beginnt die Erfassung leer. |
 | Trainerangabe als Datei | Das optionale Feld Trainer eines Teams enthält Namen und wird als Datei `./data/team/{teamId}/coaches.txt` abgelegt. Das Event vermerkt nur die Änderung. |
@@ -77,7 +77,15 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Neues Team wird aktiv | Wer ein Team anlegt, hat es danach als aktives Team. Andere Trainer behalten ihr aktives Team. |
 | Wappen im Frontend zuschneiden | Das Frontend schneidet das Wappen zu und schickt Original und Zuschnitt als JPEG (max. 5 MB je Bild). Das Backend prüft nur Typ und Größe und braucht keine Bildbibliothek. |
 | Aktives Team pro Trainer | Das aktive Team wird pro Trainer im Backend gespeichert und gilt auf allen Endgeräten des Trainers. |
-| Aktualität im Frontend | Schreibende Endpunkte antworten erst, wenn die Read-Models die neue Revision verarbeitet haben (höchstens 2 Sekunden). Änderungen anderer Trainer erkennt das Frontend per Polling (Ansichtswechsel, Fenster im Vordergrund, alle 30 Sekunden) mit der Team-Revision als `ETag`. Ändern zwei Trainer denselben Wert, gilt die zuletzt gespeicherte Änderung. Kein Push (Details siehe [7](#7-gemeinsamer-datenstand)). |
+| Aktualität im Frontend | Schreibende Endpunkte antworten erst, wenn die Read-Models die neue Revision verarbeitet haben (höchstens 2 Sekunden). Änderungen anderer Trainer erkennt das Frontend per Polling (Ansichtswechsel, Fenster im Vordergrund, alle 30 Sekunden) mit der Team-Revision als `ETag`. Hat ein anderer Trainer die Daten eines Formulars inzwischen geändert, wird das Speichern mit `409 EditConflict` abgelehnt. Kein Push (Details siehe [7](#7-gemeinsamer-datenstand)). |
+| Geburtsdatum Pflicht | Ein neuer Spieler braucht Vorname, Name und Geburtsdatum. So lassen sich gleichnamige Spieler unterscheiden. |
+| Spieler endgültig löschen | Nur durch den Betreiber auf Anfrage (DSGVO), nicht in der App. Trainer entfernen Spieler aus dem Kader; Spieler ohne Team löscht der tägliche Aufräumjob. |
+| Kader übernehmen | Spieler eines anderen Teams lassen sich gesammelt übernehmen, mit Rückennummer und Position, ohne Bewertungen. Das Profil wird über die `playerId` geteilt, nicht kopiert. |
+| Termine ohne Uhrzeit | Spieltage und Trainings haben nur ein Datum. |
+| Bewerten mit Speichern-Button | Bewertungen werden im Dialog bzw. in der Spielerliste gesammelt und mit **Speichern** übertragen. Der Service erzeugt daraus die feinen Events in einem Schreibvorgang. |
+| Vollständige Formulare, Abgleich im Backend | Das Frontend schickt beim Speichern immer alle Werte eines Formulars, nicht nur die geänderten. Der Service vergleicht jeden Wert mit dem aktuellen Zustand und ruft nur für abweichende Werte die Geschäftsmethode auf; gleiche Werte erzeugen kein Event (Regel 12 in [5.2](#52-invarianten-und-regeln)). Ausnahme sind Bilder (Wappen, Foto): Sie werden nur geschickt, wenn ein neues Bild gewählt wurde; das Entfernen wird ausdrücklich angegeben. Damit dabei keine Änderung eines anderen Trainers überschrieben wird, gilt die Konfliktprüfung (siehe „Bearbeitungskonflikt“). |
+| Bearbeitungskonflikt | Das Frontend schickt beim Speichern neben den neuen Werten auch die Werte, die es beim Öffnen des Formulars geladen hat. Weicht der aktuelle Stand im Backend in irgendeinem Wert des Formulars davon ab, lehnt der Service die ganze Anfrage mit `409 EditConflict` ab und speichert nichts. Der Trainer muss neu laden und seine Eingaben wiederholen. Verglichen wird nur, was zum Formular gehört (z. B. die Bewertung eines Spielers), nicht das ganze Team. Bilder sind ausgenommen. Bei wenigen gleichzeitig arbeitenden Trainern kommt das selten vor. |
+| Keine Trainingsserien | Trainings werden einzeln angelegt; „Wie letztes Training“ übernimmt Dauer, Thema und Schwerpunkte als Vorschlag. |
 | REST-API nutzt Services | Der Controller oder Callback einer REST-API Methode soll niemals das TeamRepository direkt nutzen, sondern über Service-Klassen erfolgen, die die Verarbeitung von Anfragen orchestrieren. |
 
 _TODO: Weitere Entscheidungen ergänzen._
@@ -119,21 +127,339 @@ Weil der Schlüssel allein den Trainer identifiziert, prüft das Backend beim St
 
 ### 4.2 Kader
 
-_TODO_
+Der Reiter `Kader` zeigt die Spieler des aktiven Teams und dient zum Hinzufügen, Bearbeiten und Entfernen von Kaderspielern.
+
+**Kaderliste**
+
+- Kopfzeile mit Anzahl der Spieler, z. B. „18 Spieler (16 aktiv)“, und den Buttons **Spieler hinzufügen** und **Aus anderem Team übernehmen**.
+- Die aktiven Spieler sind nach Position gruppiert: TW, AB, MF, ST, AR (Allrounder), danach „Ohne Position“. Innerhalb einer Gruppe wird nach Name, dann Vorname sortiert.
+- Inaktive Spieler stehen ausgegraut in einer eigenen Gruppe „Inaktiv“ am Ende der Liste, gleich sortiert.
+- Jeder Eintrag zeigt Foto (zugeschnitten, sonst Platzhalter), Rückennummer, Vorname und Name, Jahrgang und starken Fuß.
+- Haben mehrere Spieler dieselbe Rückennummer, zeigt die Liste bei ihnen einen Hinweis „Nummer doppelt vergeben“.
+- Ein Klick auf einen Spieler öffnet den Dialog [Spieler bearbeiten](#423-spieler-bearbeiten).
+
+Die Daten stammen aus dem Read-Model Kader ([5.5.5](#555-kader)), ergänzt um die Profildaten.
+
+#### 4.2.1 Spieler hinzufügen
+
+Der Dialog **Spieler hinzufügen** beginnt mit einem Suchfeld, damit Spieler aus anderen Teams (z. B. der Vorsaison) nicht doppelt angelegt werden.
+
+**Bestehenden Spieler suchen**
+
+- Ab 2 Zeichen sucht das Backend in Vorname und Name aller Spieler, die im Kader mindestens eines nicht gelöschten Teams sind. Groß- und Kleinschreibung spielen keine Rolle.
+- Spieler, die bereits im Kader des aktiven Teams sind, erscheinen nicht.
+- Jeder Treffer zeigt Foto, Vorname, Name, Geburtsdatum und die Teams, in denen der Spieler ist (Name und Saison).
+- Nach Auswahl eines Treffers werden nur noch Rückennummer und Position abgefragt. **Speichern** fügt den Spieler mit seiner bestehenden `playerId` hinzu; sein Profil wird nicht kopiert.
+
+**Neuen Spieler anlegen**
+
+Findet die Suche den Spieler nicht, legt **Neuen Spieler anlegen** ihn an:
+
+| Feld | Pflicht | Eingabe und Prüfung |
+|---|---|---|
+| Foto | nein | wie beim Wappen: im Frontend zuschneiden, Original und Zuschnitt als JPEG bis 5 MB |
+| Vorname | ja | nach Entfernen von Leerzeichen am Rand 1–50 Zeichen |
+| Name | ja | nach Entfernen von Leerzeichen am Rand 1–50 Zeichen |
+| Geburtsdatum | ja | gültiges Datum, nicht in der Zukunft |
+| Starker Fuß | nein | rechts, links, beide |
+| Rückennummer | nein | ganze Zahl 1–99 |
+| Position | nein | TW, AB, MF, ST, AR (Allrounder) |
+
+Gibt es bereits einen Spieler mit gleichem Vorname, Name und Geburtsdatum, zeigt das Frontend einen Hinweis und bietet an, diesen stattdessen hinzuzufügen. Anlegen bleibt trotzdem möglich.
+
+**Ablauf im Backend (neuer Spieler)**
+
+1. Die Route prüft die Eingaben mit Zod (Felder als JSON, Fotos als Dateien in einem `multipart/form-data`-Request).
+2. Der Service vergibt eine zufällige `playerId` und schreibt `profile.json` und die Fotos unter `player/{playerId}/`.
+3. Danach lädt er das Team, ruft `addPlayer(...)` auf und speichert `PlayerAddedToSquad`.
+4. Antwort: `201` mit der `playerId`.
+
+Schlägt Schritt 3 fehl, bleibt ein Profil ohne Team zurück; der tägliche Aufräumjob löscht es (siehe [5.4.5](#545-aufräumjob-für-spieler)).
+
+#### 4.2.2 Kader aus anderem Team übernehmen
+
+Zum Saisonwechsel lässt sich der Kader eines anderen Teams ganz oder teilweise übernehmen.
+
+1. Der Dialog **Aus anderem Team übernehmen** zeigt alle anderen nicht gelöschten Teams, sortiert wie in der Team-Übersicht.
+2. Nach Auswahl eines Teams erscheint dessen Kader mit Kontrollkästchen. Aktive Spieler sind vorausgewählt, inaktive nicht. Spieler, die bereits im aktiven Team sind, sind ausgegraut mit dem Hinweis „bereits im Kader“.
+3. **Übernehmen** fügt die ausgewählten Spieler dem aktiven Team hinzu, jeweils mit Rückennummer und Position aus dem Quellteam und als aktive Spieler. Bewertungen werden nicht übernommen.
+
+Im Backend lädt der Service das aktive Team, ruft für jeden ausgewählten Spieler `addPlayer(...)` auf und speichert alle Events in einem Schreibvorgang. Das Quellteam bleibt unverändert. Spieler, die inzwischen bereits im Kader sind, werden übersprungen. Die Antwort nennt die Anzahl der hinzugefügten Spieler.
+
+#### 4.2.3 Spieler bearbeiten
+
+Der Dialog **Spieler bearbeiten** hat zwei Bereiche:
+
+| Bereich | Felder | Gilt für |
+|---|---|---|
+| Profil | Foto, Vorname, Name, Geburtsdatum, starker Fuß (Prüfungen wie in 4.2.1) | alle Teams des Spielers. Der Dialog weist darauf hin: „Änderungen am Profil gelten in allen Teams.“ |
+| Kader | Rückennummer, Position, Aktiv | nur das aktive Team |
+
+- **Speichern** schickt alle Felder; das Backend gleicht sie mit dem aktuellen Stand ab (siehe Getroffene Entscheidungen). Ein vorhandenes Foto lässt sich entfernen, eine Rückennummer löschen. Eine Position lässt sich ändern und entfernen (`removePosition`); der Spieler steht dann unter „Ohne Position“.
+- **Profiländerungen:** Weicht das Profil vom gespeicherten ab, schreibt der Service die Profildatei und danach `PlayerProfileChanged` in jedes Team, in dessen Kader der Spieler ist (siehe [5.3.2](#532-kader)).
+- **Kaderänderungen:** Der Service ruft für jedes abweichende Feld die passende Geschäftsmethode auf (`assignShirtNumber`, `removeShirtNumber`, `changePosition`, `removePosition`, `deactivatePlayer`, `reactivatePlayer`) und speichert alle Events in einem Schreibvorgang.
+- **Inaktiv setzen:** Der Dialog weist darauf hin, dass für inaktive Spieler keine Bewertungen erfasst werden können und bereits erfasste erhalten bleiben.
+- Antwort: `200` mit dem aktualisierten Kaderspieler.
+
+#### 4.2.4 Aus dem Kader entfernen
+
+Der Dialog **Spieler bearbeiten** enthält den Button **Aus dem Kader entfernen**. Er öffnet einen Bestätigungsdialog mit den Folgen:
+
+- Alle Bewertungen des Spielers in diesem Team verfallen, seine Kommentare in diesem Team werden gelöscht. Das lässt sich nicht rückgängig machen; wird der Spieler erneut hinzugefügt, beginnt er ohne Bewertungen.
+- Ist der Spieler danach in keinem Team mehr, wird sein Profil innerhalb eines Tages gelöscht.
+
+**Entfernen** lädt das Team, ruft `removePlayer(...)` auf, speichert `PlayerRemovedFromSquad` und löscht danach die Kommentardateien des Spielers in diesem Team. Antwort: `204`. Wer einen Spieler nur pausieren will, setzt ihn inaktiv.
+
+#### 4.2.5 Spieler endgültig löschen
+
+Die App bietet keine Funktion, einen Spieler endgültig zu löschen. Verlangt eine Person die Löschung ihrer Daten (DSGVO), löscht der Betreiber sie (siehe [8.4](#84-spieler-auf-anfrage-löschen)). Für Trainer genügt im Alltag „Aus dem Kader entfernen“: Ein Spieler ohne Team wird automatisch gelöscht.
+
+**Fehlermeldungen im Frontend**
+
+| Fall | Meldung |
+|---|---|
+| `409 PlayerAlreadyInSquad` | „Der Spieler ist bereits im Kader.“ |
+| `404 PlayerNotInSquad` | „Der Spieler wurde inzwischen aus dem Kader entfernt.“ Das Frontend lädt den Kader neu. |
+| `422` ungültige Eingabe | Meldung am betroffenen Feld |
+| `413` bzw. ungültiges Bild | „Das Foto muss ein JPEG-Bild bis 5 MB sein.“ |
+| `409 EditConflict` | „Die Daten wurden inzwischen von einem anderen Trainer geändert. Bitte neu laden und die Eingaben wiederholen.“ Der Button **Neu laden** lädt den aktuellen Stand in den Dialog. |
+| `409 ConcurrencyConflict` | „Der Kader wurde gerade von einem anderen Trainer geändert. Bitte erneut speichern.“ |
 
 ### 4.3 Termine
 
+Der Reiter `Termine` hat zwei Unterreiter, **Spieltage** und **Trainings**. Das Frontend merkt sich den zuletzt gewählten Unterreiter. Ein Klick auf einen Termin öffnet seine [Bewertungsansicht](#433-bewertungsansicht).
+
+Termine haben nur ein Datum, keine Uhrzeit. Die Daten der Listen stammen aus dem Read-Model Termine ([5.5.6](#556-termine)).
+
 #### 4.3.1 Spieltage
 
-_TODO_
+**Liste**
+
+- Sortiert nach Datum, neueste zuerst. Oben der Button **Spieltag anlegen**.
+- Jeder Eintrag zeigt Datum, Spieltag-Nummer, Gegner, Ort (Heim, Auswärts, Neutral), Wettbewerb, Ergebnis aus Sicht des Teams (farblich als Sieg, Unentschieden oder Niederlage markiert, ohne Ergebnis `–:–`), den Erfassungsstand (z. B. „12 von 16 erfasst“) und ein Symbol, wenn eine Notiz vorhanden ist. Nicht belegte Angaben bleiben leer; ohne Gegner zeigt die Liste „Spieltag“.
+
+**Spieltag anlegen**
+
+| Feld | Pflicht | Eingabe und Prüfung | Vorbelegung |
+|---|---|---|---|
+| Datum | ja | gültiges Datum | heute |
+| Spieltag-Nummer | nein | ganze Zahl ≥ 1 | – |
+| Gegner | nein | nach Entfernen von Leerzeichen am Rand bis 100 Zeichen | – |
+| Ort | nein | Heim, Auswärts, Neutral | – |
+| Wettbewerb | nein | Liga, Pokal, Test, Turnier | – |
+| Ergebnis | nein | Tore Team und Tore Gegner, je ganze Zahl ≥ 0; entweder beide oder keins | – |
+| Notiz | nein | Freitext bis 2000 Zeichen | – |
+
+Ablauf im Backend:
+
+1. Die Route prüft die Eingaben mit Zod.
+2. Der Service vergibt eine zufällige `matchId`. Ist eine Notiz angegeben, schreibt er zuerst `match/{matchId}/notes.txt`.
+3. Er lädt das Team, ruft `scheduleMatch(...)` auf und je nach Eingabe `recordResult(...)` und `writeMatchNotes(...)`, und speichert alle Events in einem Schreibvorgang.
+4. Antwort: `201` mit der `matchId`.
+
+**Spieltag bearbeiten**
+
+Der Dialog **Spieltag bearbeiten** wird aus der Bewertungsansicht geöffnet und enthält dieselben Felder, vorbelegt mit den aktuellen Werten. **Speichern** schickt alle Felder; der Service vergleicht sie mit dem aktuellen Stand und ruft für abweichende Felder die passenden Geschäftsmethoden auf (`rescheduleMatch`, `changeMatchday`, `removeMatchday`, `changeOpponent`, `removeOpponent`, `changeVenue`, `removeVenue`, `changeCompetition`, `removeCompetition`, `recordResult`, `clearResult`, `writeMatchNotes`, `removeMatchNotes`) und speichert alle Events in einem Schreibvorgang. Ein geleertes Feld gilt als Entfernen. Antwort: `200`.
+
+**Spieltag löschen**
+
+Der Dialog **Spieltag bearbeiten** enthält den Button **Löschen**. Der Bestätigungsdialog nennt die Folgen: Alle Bewertungen dieses Spieltags verfallen, Notiz und Kommentare werden gelöscht, ein Wiederherstellen ist nicht möglich. Der Service ruft `deleteMatch(...)` auf, speichert `MatchDeleted` und löscht danach `match/{matchId}/`. Antwort: `204`.
 
 #### 4.3.2 Trainings
 
-_TODO_
+**Liste**
+
+- Sortiert nach Datum, neueste zuerst. Oben der Button **Training anlegen**.
+- Jeder Eintrag zeigt Datum, Thema, Schwerpunkte, Dauer, die Teilnahme (z. B. „14 von 16 anwesend“, gezählt werden Anwesend und Verspätet) und ein Symbol, wenn eine Notiz vorhanden ist.
+
+**Training anlegen**
+
+| Feld | Pflicht | Eingabe und Prüfung | Vorbelegung |
+|---|---|---|---|
+| Datum | ja | gültiges Datum | heute |
+| Dauer | ja | ganze Zahl 1–600 Minuten | Trainingszeit aus den Einstellungen des Trainers |
+| Thema | nein | Freitext bis 100 Zeichen | – |
+| Schwerpunkte | nein | Mehrfachauswahl aus der festen Liste (siehe [5.3.4](#534-trainings)) | – |
+| Notiz | nein | Freitext bis 2000 Zeichen | – |
+
+Der Button **Wie letztes Training** füllt Dauer, Thema und Schwerpunkte mit den Werten des zuletzt stattgefundenen Trainings vor. Trainings werden einzeln angelegt; Serien gibt es nicht.
+
+Ablauf im Backend wie bei Spieltagen: zufällige `trainingId`, Notiz zuerst als Datei, dann `scheduleTraining(...)` und ggf. `writeTrainingNotes(...)` in einem Schreibvorgang. Antwort: `201` mit der `trainingId`.
+
+**Training bearbeiten und löschen**
+
+Wie bei Spieltagen, mit den Geschäftsmethoden `rescheduleTraining`, `changeTrainingDuration`, `changeTrainingTopic`, `changeTrainingFocus`, `writeTrainingNotes`, `removeTrainingNotes` bzw. `deleteTraining`. Beim Löschen werden `training/{trainingId}/` mit Notiz und Kommentaren gelöscht.
+
+#### 4.3.3 Bewertungsansicht
+
+Die Bewertungsansicht zeigt einen Termin mit den Bewertungen aller Spieler. Grundlage ist das Read-Model Termin-Detail ([5.5.7](#557-termin-detail)).
+
+**Kopf**
+
+Termindaten wie in der Liste, dazu die Notiz und der Button **Bearbeiten** (Termin bearbeiten bzw. löschen).
+
+**Spielerliste**
+
+- Alle aktiven Kaderspieler, gruppiert und sortiert wie in der Kaderliste ([4.2](#42-kader)).
+- Inaktive Spieler erscheinen nur, wenn für sie bereits etwas erfasst ist, ausgegraut und nur lesbar.
+- Jede Zeile zeigt Foto, Name, Einsatz bzw. Anwesenheit (oder „nicht erfasst“), Leistungsnote und bei Spieltagen Tore und Karten.
+- Einsatz bzw. Anwesenheit lassen sich direkt in der Zeile wählen. Die Änderungen werden gesammelt und erst mit **Speichern** übertragen; **Verwerfen** setzt sie zurück. Wer die Ansicht mit ungespeicherten Änderungen verlässt, wird gefragt, ob sie verworfen werden sollen.
+- **Alle Startelf** (Spieltag) bzw. **Alle anwesend** (Training) erfasst sofort alle aktiven Spieler, für die noch nichts erfasst ist (siehe [5.3.5](#535-spielbewertung) und [5.3.6](#536-trainingsbewertung)). Bei ungespeicherten Änderungen in der Liste ist der Button gesperrt.
+- Ein Klick auf einen Spieler öffnet den Dialog **Bewertung**.
+
+**Dialog Bewertung (Spieltag)**
+
+| Feld | Eingabe |
+|---|---|
+| Einsatz | Startelf, Eingewechselt, Nicht dabei |
+| Minuten | ganze Zahl ≥ 0; wird mit der Standard-Spielzeit des Trainers vorbelegt, sobald Startelf oder Eingewechselt gewählt ist und noch keine Minuten erfasst sind |
+| Leistungsnote | 1–6 in halben Schritten, leer möglich |
+| Fairness | 1–6, leer möglich |
+| Eigenschaften | je 0–5 Sterne: Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist |
+| Tore, Vorlagen, Paraden | ganze Zahl ≥ 0 mit Plus- und Minus-Buttons |
+| Karten | Gelb, Gelb-Rot, Rot je als Schalter |
+| Kommentar | Freitext bis 2000 Zeichen |
+
+**Dialog Bewertung (Training)**
+
+| Feld | Eingabe |
+|---|---|
+| Anwesenheit | Anwesend, Verspätet, Entschuldigt, Unentschuldigt |
+| Leistungsnote | 1–6 in halben Schritten, leer möglich |
+| Fairness | 1–6, leer möglich |
+| Eigenschaften | je 0–5 Sterne wie beim Spieltag |
+| Kommentar | Freitext bis 2000 Zeichen |
+
+Verhalten in beiden Dialogen:
+
+- Solange kein Einsatz (Startelf, Eingewechselt) bzw. keine Anwesenheit (Anwesend, Verspätet) gewählt ist, sind Minuten und Leistungswerte gesperrt. Der Kommentar ist immer möglich.
+- Wird Nicht dabei, Entschuldigt oder Unentschuldigt gewählt, weist der Dialog darauf hin, dass die erfassten Leistungswerte beim Speichern verfallen.
+- **Speichern** überträgt alle Werte des Dialogs, **Abbrechen** verwirft die Eingaben.
+- **Vor/Zurück** wechselt zum nächsten bzw. vorherigen Spieler der Liste. Ungespeicherte Änderungen werden vorher gespeichert.
+- **Zurücksetzen** setzt die Bewertung nach Rückfrage auf „nicht erfasst“ zurück (`resetMatchRating` bzw. `resetTrainingRating`); der Kommentar bleibt erhalten.
+
+**Ablauf im Backend**
+
+1. Die Route prüft die übertragenen Werte mit Zod.
+2. Weicht der Kommentar vom gespeicherten Text ab, schreibt der Service zuerst die Kommentardatei. Ein geleerter Kommentar gilt als Entfernen; die Datei wird erst nach dem Event gelöscht.
+3. Der Service lädt das Team, vergleicht jeden Wert mit dem aktuellen Zustand und ruft nur für abweichende Werte die Geschäftsmethoden auf, in fester Reihenfolge: zuerst Einsatz bzw. Anwesenheit, dann Minuten und Leistungswerte, zuletzt der Kommentar. Geleerte Noten werden über die `withdraw…`-Methoden zurückgenommen, abgeschaltete Karten über `withdrawCard`.
+4. Alle Events werden in einem Schreibvorgang gespeichert. Lehnt eine Methode ab, wird nichts gespeichert und der Fehler gemeldet.
+5. Antwort: `200` mit der aktualisierten Bewertung.
+
+Die Spielerliste schickt Einsatz bzw. Anwesenheit aller Spieler der Liste und wird auf dieselbe Weise abgeglichen, mit einem Schreibvorgang für alle Spieler.
+
+Vor dem Aufruf der Geschäftsmethoden prüft der Service auf einen Bearbeitungskonflikt: Weicht die aktuelle Bewertung von den Werten ab, die das Frontend beim Öffnen geladen hat, wird mit `409 EditConflict` abgelehnt (bei der Spielerliste: Einsatz bzw. Anwesenheit irgendeines Spielers der Liste). Bewerten zwei Trainer gleichzeitig verschiedene Spieler im Dialog, gibt es keinen Konflikt.
+
+**Fehlermeldungen im Frontend**
+
+| Fall | Meldung |
+|---|---|
+| `404 MatchNotFound` / `TrainingNotFound` | „Dieser Termin wurde inzwischen gelöscht.“ Das Frontend wechselt zur Liste. |
+| `404 PlayerNotInSquad` | „Der Spieler wurde inzwischen aus dem Kader entfernt.“ Das Frontend lädt die Ansicht neu. |
+| `422 PlayerInactive` | „Der Spieler ist inaktiv und kann nicht bewertet werden.“ |
+| `422 NotParticipating` | „Leistungswerte können erst nach Einsatz bzw. Anwesenheit erfasst werden.“ |
+| `422` ungültige Eingabe | Meldung am betroffenen Feld |
+| `409 EditConflict` | „Die Daten wurden inzwischen von einem anderen Trainer geändert. Bitte neu laden und die Eingaben wiederholen.“ Der Button **Neu laden** lädt den aktuellen Stand in den Dialog. |
+| `409 ConcurrencyConflict` | „Der Termin wurde gerade von einem anderen Trainer geändert. Bitte erneut speichern.“ |
 
 ### 4.4 Auswertungen
 
-_TODO_
+Der Reiter `Auswertungen` fasst die Bewertungen des aktiven Teams zusammen. Er gliedert sich in fünf Ansichten: Teambilanz, Trainingsbilanz, Spielertabelle, Ranglisten und Spielerdetail.
+
+**Filter**
+
+| Filter | Wirkung | Standard |
+|---|---|---|
+| Zeitraum (Von, Bis) | Nur Termine im Zeitraum werden berücksichtigt. Gilt für alle Ansichten. | ganze Saison |
+| Inaktive ausblenden | Inaktive Spieler erscheinen nicht in Spielertabelle, Ranglisten und „Spieler im Training“. Teamwerte (Bilanzen, Durchschnitte über das Team) bleiben unverändert. | ein |
+
+Die Filter gelten für den ganzen Reiter und bleiben beim Wechsel zwischen den Ansichten erhalten.
+
+#### 4.4.1 Rechenregeln
+
+Diese Regeln gelten für alle Ansichten:
+
+- Es zählen nur Bewertungen, deren Leistung zählt (Startelf, Eingewechselt, Anwesend, Verspätet). Verfallene Bewertungen zählen nie.
+- Spiel- und Trainingswerte werden getrennt berechnet. Es gibt keinen gemeinsamen Durchschnitt.
+- **Durchschnitte** (Ø-Note, Ø-Fairness, Ø-Sterne) sind arithmetische Mittel über alle Termine, an denen der Wert erfasst ist. Nicht erfasste Einzelwerte zählen nicht als 0. Angezeigt wird mit einer Nachkommastelle, daneben die Anzahl der Werte (z. B. `2,3 (7)`).
+- **Notenskala:** Leistungsnote und Fairness sind Schulnoten, 1 ist die beste Note.
+- **Einsatz** im Spiel heißt Startelf oder Eingewechselt.
+- **Trainingsbeteiligung** eines Spielers: Anzahl Anwesend und Verspätet geteilt durch die Anzahl der Trainings, für die eine Anwesenheit des Spielers erfasst ist, in Prozent ohne Nachkommastelle.
+- Ein Wert ohne Grundlage (z. B. Ø-Note ohne erfasste Note) wird als `–` angezeigt.
+
+#### 4.4.2 Teambilanz
+
+Kennzahlen aus den Spieltagen:
+
+| Kennzahl | Berechnung |
+|---|---|
+| Spiele | Anzahl Spieltage im Zeitraum |
+| Siege, Unentschieden, Niederlagen | aus dem Ergebnis; Spieltage ohne Ergebnis zählen nur bei „Spiele“ und werden als „ohne Ergebnis“ ausgewiesen |
+| Tore, Gegentore, Tordifferenz | Summe über die Ergebnisse |
+| Ø-Spielnote des Teams | Durchschnitt aller erfassten Spielnoten |
+
+#### 4.4.3 Trainingsbilanz
+
+| Kennzahl | Berechnung |
+|---|---|
+| Einheiten | Anzahl Trainings im Zeitraum |
+| Stunden insgesamt | Summe der Trainingsdauer aller Trainings, in Stunden mit einer Nachkommastelle |
+| Beteiligung | Anwesend und Verspätet geteilt durch alle erfassten Anwesenheiten, in Prozent |
+| Ø-Teilnehmer | Anwesend und Verspätet je Training, gemittelt über Trainings mit mindestens einer erfassten Anwesenheit |
+| Ø-Unentschuldigt | Unentschuldigt je Training, gemittelt über dieselben Trainings |
+| Ø-Trainingsnote | Durchschnitt aller erfassten Trainingsnoten |
+
+Diagramme:
+
+- **Trainingsbeteiligung im Zeitverlauf:** Liniendiagramm, ein Punkt je Training (Datum) mit der Beteiligung dieses Trainings in Prozent.
+- **Trainingsnote im Zeitverlauf:** Liniendiagramm, ein Punkt je Training mit der Ø-Note dieses Trainings. Trainings ohne Note haben keinen Punkt.
+- **Trainingsschwerpunkte:** Balkendiagramm (Histogramm) mit der Anzahl Trainings je Schwerpunkt. Ein Training mit mehreren Schwerpunkten zählt bei jedem.
+
+**Spieler im Training:** Tabelle mit einer Zeile je Spieler: Anwesend, Verspätet, Entschuldigt, Unentschuldigt (jeweils Anzahl), Beteiligung, Ø-Note, Ø-Fairness. Sortierbar nach jeder Spalte, Standard: Beteiligung absteigend.
+
+#### 4.4.4 Spielertabelle
+
+Eine Zeile je Spieler mit Rückennummer und Name. Die Tabelle hat zwei Spaltengruppen, zwischen denen umgeschaltet wird:
+
+| Gruppe | Spalten |
+|---|---|
+| Spiel | Einsätze, davon Startelf, Minuten, Tore, Vorlagen, Paraden, Gelb, Gelb-Rot, Rot, Ø-Note, Ø-Fairness, Ø-Sterne je Eigenschaft |
+| Training | Beteiligung, Ø-Note, Ø-Fairness, Ø-Sterne je Eigenschaft |
+
+Jede Spalte ist sortierbar, Standard ist Name, dann Vorname (alphabetisch). Ein Klick auf eine Zeile öffnet das Spielerdetail.
+
+#### 4.4.5 Ranglisten
+
+| Rangliste | Sortierung |
+|---|---|
+| Torschützen | Tore absteigend |
+| Vorlagengeber | Vorlagen absteigend |
+| Scorer | Tore plus Vorlagen absteigend |
+| Einsatzminuten | Minuten absteigend |
+| Ø-Spielnote | aufsteigend (beste zuerst) |
+| Ø-Trainingsnote | aufsteigend |
+| Ø-Fairness (Spiel) | aufsteigend |
+| Trainingsbeteiligung | absteigend |
+
+- Jede Rangliste zeigt die ersten 5 Plätze; „Alle anzeigen“ klappt die vollständige Liste auf.
+- Gleiche Werte ergeben den gleichen Platz (z. B. 1, 2, 2, 4).
+- Spieler mit dem Wert 0 bzw. ohne Grundlage erscheinen nicht.
+- Es gibt keine Mindestanzahl an Bewertungen. Neben jedem Durchschnitt steht die Anzahl der Werte.
+
+#### 4.4.6 Spielerdetail
+
+Wird aus Spielertabelle, Ranglisten oder „Spieler im Training“ geöffnet und zeigt einen Spieler im gewählten Zeitraum:
+
+- **Kopf:** Foto, Name, Rückennummer, Position, aktiv bzw. inaktiv.
+- **Kennzahlen:** die Werte der Spielertabelle für Spiel und Training.
+- **Notenverlauf:** Liniendiagramm mit je einer Linie für Spielnote und Trainingsnote, ein Punkt je Termin.
+- **Eigenschaften:** Netzdiagramm mit den Ø-Sternen der fünf Eigenschaften, je eine Fläche für Spiel und Training.
+- **Anwesenheit:** Aufteilung der Trainings nach Anwesend, Verspätet, Entschuldigt und Unentschuldigt.
+- **Termine:** Liste aller Termine mit erfasster Bewertung (Datum, Gegner bzw. Thema, Einsatz bzw. Anwesenheit, Note). Ein Klick öffnet die Bewertungsansicht des Termins.
+
+#### 4.4.7 Ablauf im Backend
+
+Die Auswertungen werden bei jeder Anfrage aus den Read-Models Termine und Termin-Detail berechnet, gefiltert nach dem Zeitraum (siehe [5.5.8](#558-auswertung)). Namen und Fotos ergänzt das Backend erst beim Ausliefern aus den Profildateien. Das Ausblenden inaktiver Spieler und das Sortieren übernimmt das Frontend. Die Antworten tragen die Team-Revision als `ETag` (siehe [7.2](#72-änderungen-anderer-trainer-erkennen)).
 
 ### 4.5 Team
 
@@ -217,12 +543,12 @@ Schlägt Schritt 4 fehl, bleibt das Team ohne Wappen bzw. Trainerangabe bestehen
 Der Dialog **Team bearbeiten** enthält dieselben Felder und Prüfungen wie [Team anlegen](#451-team-anlegen), vorbelegt mit den aktuellen Werten. Zusätzlich lässt sich ein vorhandenes Wappen entfernen.
 
 - **Abbrechen** verwirft alle Änderungen.
-- **Speichern** schickt nur die geänderten Felder an das Backend. Der Service ruft für jedes geänderte Feld die passende Geschäftsmethode auf (`rename`, `changeSeason`, `changeTier`, `uploadCrest`, `removeCrest`, `changeCoaches`, `removeCoaches`) und speichert alle entstandenen Events in einem Schreibvorgang. Unveränderte Felder erzeugen keine Events.
+- **Speichern** schickt alle Felder an das Backend (Wappen nur, wenn ein neues gewählt wurde). Der Service vergleicht sie mit dem aktuellen Stand und ruft für jedes abweichende Feld die passende Geschäftsmethode auf (`rename`, `changeSeason`, `changeTier`, `uploadCrest`, `removeCrest`, `changeCoaches`, `removeCoaches`) und speichert alle entstandenen Events in einem Schreibvorgang. Unveränderte Felder erzeugen keine Events.
 - Ändert sich Name oder Saison, prüft der Service über die Team-Übersicht, ob es bereits ein anderes nicht gelöschtes Team mit dem neuen Namen und der neuen Saison gibt. Wenn ja: `409 DuplicateTeam`, es wird nichts gespeichert.
 - Wappen und Trainerangabe: Beim Hochladen bzw. Ändern wird erst die Datei geschrieben, dann das Event. Beim Entfernen wird erst das Event geschrieben, dann die Datei gelöscht. Ein leeres Trainerfeld gilt als Entfernen.
 - Antwort: `200` mit dem aktualisierten Team.
 
-Weil die Events fachlich fein geschnitten sind, überschreiben sich zwei Trainer nicht, wenn sie gleichzeitig verschiedene Felder ändern. Ändern sie dasselbe Feld, gilt die zuletzt gespeicherte Änderung.
+Hat ein anderer Trainer die Teamdaten geändert, seit der Dialog geöffnet wurde, lehnt der Service mit `409 EditConflict` ab (siehe „Bearbeitungskonflikt“).
 
 **Löschen**
 
@@ -248,19 +574,138 @@ War das gelöschte Team das aktive Team eines Trainers, wird beim nächsten Lese
 | `409 DuplicateTeam` | „Ein Team mit diesem Namen und dieser Saison existiert bereits.“ |
 | `422 LastTeam` | „Das letzte Team kann nicht gelöscht werden. Lege zuerst ein weiteres Team an.“ |
 | `404 TeamDeleted` / `TeamNotFound` | „Dieses Team wurde inzwischen gelöscht.“ Das Frontend lädt danach die Einstellungen neu. |
+| `409 EditConflict` | „Die Daten wurden inzwischen von einem anderen Trainer geändert. Bitte neu laden und die Eingaben wiederholen.“ Der Button **Neu laden** lädt den aktuellen Stand in den Dialog. |
 | `409 ConcurrencyConflict` | „Das Team wurde gerade von einem anderen Trainer geändert. Bitte erneut speichern.“ |
 
 #### 4.5.3 Bewertungen als CSV exportieren
 
-_TODO_
+Der Export liefert die Bewertungen des aktiven Teams als CSV-Datei, z. B. zur eigenen Auswertung in Excel.
+
+**Dialog**
+
+| Feld | Eingabe | Standard |
+|---|---|---|
+| Art | Spieltage, Trainings oder beides | beides |
+| Von | Datum, optional | ohne Untergrenze |
+| Bis | Datum, optional | ohne Obergrenze |
+
+- Ohne Datumsangaben wird die ganze Saison exportiert. Ist **Von** später als **Bis**, zeigt das Frontend den Fehler am Feld.
+- Der Dialog weist darauf hin: „Die Datei enthält Namen und Kommentare der Spieler. Gib sie nicht weiter und lösche sie, wenn du sie nicht mehr brauchst.“
+- **Exportieren** lädt die Datei herunter und schließt den Dialog. **Abbrechen** schließt den Dialog ohne Export.
+
+**Inhalt**
+
+Eine Zeile je Termin und Spieler mit erfasstem Einsatz bzw. erfasster Anwesenheit. Spieler mit Status „nicht erfasst“ erscheinen nicht, Spieler mit Nicht dabei, Entschuldigt oder Unentschuldigt schon (ohne Leistungswerte). Verfallene Bewertungen (gelöschte Termine, aus dem Kader entfernte Spieler) erscheinen nicht. Exportiert werden auch Bewertungen inaktiver Spieler.
+
+Spieltage und Trainings stehen in derselben Datei; die Spalte **Art** unterscheidet sie. Spalten, die für die Art nicht gelten, bleiben leer. Sortiert wird nach Datum, dann Art (Spieltag vor Training), dann Rückennummer, dann Name.
+
+| Spalte | Spieltag | Training |
+|---|---|---|
+| Art | `Spieltag` | `Training` |
+| Datum | ✓ | ✓ |
+| Spieltag-Nr., Gegner, Ort, Wettbewerb, Ergebnis | ✓ | – |
+| Dauer, Thema, Schwerpunkte | – | ✓ |
+| Rückennummer, Position | aktueller Stand im Kader | aktueller Stand im Kader |
+| Vorname, Name | ✓ | ✓ |
+| Einsatz | Startelf, Eingewechselt, Nicht dabei | – |
+| Anwesenheit | – | Anwesend, Verspätet, Entschuldigt, Unentschuldigt |
+| Minuten | ✓ | – |
+| Leistungsnote, Fairness | ✓ | ✓ |
+| Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist | ✓ | ✓ |
+| Tore, Vorlagen, Paraden | ✓ | – |
+| Gelb, Gelb-Rot, Rot | je Kartenart eine Spalte mit der Anzahl gezeigter Karten | – |
+| Kommentar | ✓ | ✓ |
+
+- Zählt die Leistung nicht (Nicht dabei, Entschuldigt, Unentschuldigt), bleiben Minuten und alle Leistungswerte leer. Nicht erfasste Einzelwerte bleiben ebenfalls leer.
+- Das Ergebnis steht als `3:1` aus Sicht des Teams, Schwerpunkte durch Komma getrennt.
+- Gelöschte Spieler erscheinen als Vorname leer, Name „Gelöschter Spieler“, ohne Kommentar.
+
+**Format**
+
+Die Datei ist für deutsches Excel ausgelegt und öffnet sich per Doppelklick korrekt:
+
+| Eigenschaft | Festlegung |
+|---|---|
+| Zeichensatz | UTF-8 mit BOM |
+| Trennzeichen | Semikolon |
+| Zeilenende | CRLF |
+| Kopfzeile | deutsche Spaltennamen wie in der Tabelle oben |
+| Datum | `TT.MM.JJJJ` |
+| Dezimalzahlen | Dezimalkomma, z. B. `2,5` |
+| Maskierung | Felder mit Semikolon, Anführungszeichen oder Zeilenumbruch stehen in doppelten Anführungszeichen, enthaltene Anführungszeichen werden verdoppelt |
+| Formelschutz | Freitexte (Name, Gegner, Thema, Kommentar), die mit `=`, `+`, `-` oder `@` beginnen, erhalten ein vorangestelltes `'`, damit Excel sie nicht als Formel ausführt |
+| Dateiname | `Bewertungen_{Teamname}_{Saison}.csv`, z. B. `Bewertungen_D1-Junioren_2026_27.csv`; Zeichen, die in Dateinamen nicht erlaubt sind, werden durch `_` ersetzt |
+
+**Ablauf im Backend**
+
+1. Die Route prüft die Parameter (Art, Von, Bis) mit Zod; ist Von später als Bis: `400`.
+2. Der Service setzt die Zeilen aus den Read-Models Termine ([5.5.6](#556-termine)), Termin-Detail ([5.5.7](#557-termin-detail)) und Kader ([5.5.5](#555-kader)) zusammen und ergänzt Namen und Kommentare aus den Dateien.
+3. Antwort: `200` mit `Content-Type: text/csv; charset=utf-8` und `Content-Disposition: attachment` mit dem Dateinamen. Gibt es keine passenden Bewertungen, enthält die Datei nur die Kopfzeile.
+
+Der Export schreibt keine Events. Protokolliert werden nur `teamId` und Parameter, nie Inhalte der Datei.
 
 #### 4.5.4 Saisonbilanz teilen
 
-_TODO_
+Die Saisonbilanz ist ein Bild, das der Trainer mit Eltern und Mannschaft teilt, z. B. in einer Messenger-Gruppe. Sie zeigt Teamwerte und die erfolgreichsten Spieler, aber keine Noten oder Bewertungen einzelner Spieler, damit niemand bloßgestellt wird.
+
+**Inhalt**
+
+Grundlage ist immer die ganze Saison des aktiven Teams. Die Filter des Reiters `Auswertungen` gelten nicht.
+
+| Bereich | Inhalt |
+|---|---|
+| Kopf | Wappen (oder Platzhalter), Name, Saison (`2026/27`), Spielklasse |
+| Teambilanz | Spiele, Siege, Unentschieden, Niederlagen, Tore:Gegentore |
+| Trainingsbilanz | Einheiten, Stunden insgesamt, Beteiligung |
+| Top-Torschützen | Plätze 1–3 mit vollem Namen und Anzahl Tore |
+| Top-Vorlagengeber | Plätze 1–3 mit vollem Namen und Anzahl Vorlagen |
+| Trainingsfleiß | Plätze 1–3 mit vollem Namen und Trainingsbeteiligung in Prozent |
+| Fußzeile | „Erstellt mit Kaderblick“ und Datum der Erstellung |
+
+- Die Werte werden nach den Rechenregeln aus [4.4.1](#441-rechenregeln) berechnet; Ranglisten wie in [4.4.5](#445-ranglisten): Gleiche Werte ergeben den gleichen Platz, Spieler mit dem Wert 0 erscheinen nicht.
+- In den Top-Listen erscheinen alle Spieler bis Platz 3, bei Gleichstand also auch mehr als drei, höchstens aber fünf Namen. Gibt es mehr Spieler mit gleichem Wert, steht nach dem fünften Namen „und weitere“.
+- Inaktive Spieler werden berücksichtigt, Spieler mit gelöschtem Profil nicht.
+- Hat das Team noch keine Spieltage bzw. Trainings, entfällt der jeweilige Bereich samt Top-Liste.
+
+**Ablauf im Frontend**
+
+1. Der Button **Saisonbilanz teilen** im Reiter `Team` lädt die Auswertung des aktiven Teams für die ganze Saison und zeigt eine Vorschau des Bildes in einem Dialog.
+2. Der Dialog weist darauf hin: „Das Bild enthält die vollständigen Namen von Spielern. Teile es nur mit Eltern und Mannschaft.“
+3. **Teilen** öffnet das Teilen-Menü des Geräts (Web Share API mit Datei). Bietet der Browser das nicht an, gibt es nur **Herunterladen**.
+4. **Herunterladen** speichert das Bild als `Saisonbilanz_{Teamname}_{Saison}.png`; unzulässige Zeichen im Dateinamen werden durch `_` ersetzt.
+5. **Schließen** beendet den Dialog.
+
+Das Bild erzeugt das Frontend (PNG, 1080 × 1350 Pixel, Hochformat) mit eingebetteter Schrift, damit es auf allen Geräten gleich aussieht. Das Backend braucht dafür keinen eigenen Endpunkt: Es liefert die Auswertung wie für den Reiter `Auswertungen` (siehe [4.4.7](#447-ablauf-im-backend)). Das Bild wird nirgends gespeichert.
 
 ### 4.6 Einstellungen
 
-_TODO_
+Der Reiter `Einstellungen` hat vier Bereiche.
+
+**Angemeldeter Trainer**
+
+Zeigt Name und E-Mail des angemeldeten Trainers aus der Trainer-Konfiguration, nur lesbar. Darunter der Button **Abmelden** (siehe [4.1.3](#413-sitzung-beenden)). Änderungen an Name oder E-Mail erfolgen über die Trainer-Konfiguration ([8.1](#81-konfiguration)).
+
+**Vorgaben**
+
+| Feld | Pflicht | Eingabe und Prüfung | Standard | Wirkung |
+|---|---|---|---|---|
+| Trainingszeit | ja | ganze Zahl 1–600 Minuten | 90 | Vorbelegung der Dauer beim Anlegen eines Trainings ([4.3.2](#432-trainings)) |
+| Standard-Spielzeit | ja | ganze Zahl 1–120 Minuten | 12 | Vorbelegung der gespielten Minuten in der Spielbewertung ([4.3.3](#433-bewertungsansicht)) |
+
+- **Speichern** schickt beide Werte an das Backend, wie bei allen Formularen vollständig. Der Service schreibt sie in `trainer/{trainerId}/settings.json`; das aktive Team in derselben Datei bleibt unverändert. Antwort: `200`.
+- **Verwerfen** setzt die Felder auf den gespeicherten Stand zurück.
+- Die Vorgaben gelten für den Trainer auf allen seinen Geräten und wirken nur auf neue Eingaben; bereits gespeicherte Trainings und Bewertungen ändern sich nicht.
+- Die Einstellungen gehören nur einem Trainer und erzeugen keine Events. Es gibt keine Konfliktprüfung: Speichert derselbe Trainer auf zwei Geräten, gilt der zuletzt gespeicherte Stand.
+- Fehlt `settings.json`, gelten die Standardwerte.
+
+**Darstellung**
+
+Auswahl **Hell**, **Dunkel** oder **Wie System** (Standard). Die Auswahl wird nur im Browser des Geräts gespeichert und sofort angewendet; das Backend ist nicht beteiligt.
+
+**Info**
+
+- Versionsnummer des Frontends und des Backends (das Backend liefert seine Version über einen Endpunkt ohne Anmeldung, siehe [6](#6-api)).
+- Link zur Datenschutzerklärung. Ihre Adresse wird beim Bereitstellen des Frontends festgelegt.
 
 ## 5. Domänenmodell
 
@@ -357,7 +802,8 @@ In den Tabellen verweist die Spalte „Regeln“ auf die Nummern aus [5.2](#52-i
 | `addPlayer({ playerId, shirtNumber?, position? })` | `PlayerAddedToSquad { playerId, shirtNumber, position }` | 1, 3 |
 | `assignShirtNumber(playerId, number)` | `ShirtNumberAssigned { playerId, number }` | 1, 3 |
 | `removeShirtNumber(playerId)` | `ShirtNumberRemoved { playerId }` | 1, 3 |
-| `changePosition(playerId, position)` | `PositionChanged { playerId, position }` (TW, AB, MF, ST) | 1, 3 |
+| `changePosition(playerId, position)` | `PositionChanged { playerId, position }` (TW, AB, MF, ST, AR) | 1, 3 |
+| `removePosition(playerId)` | `PositionRemoved { playerId }` | 1, 3 |
 | `deactivatePlayer(playerId)` | `PlayerDeactivated { playerId }` | 1, 3 |
 | `reactivatePlayer(playerId)` | `PlayerReactivated { playerId }` | 1, 3 |
 | `removePlayer(playerId)` | `PlayerRemovedFromSquad { playerId }` | 1, 3, 10 |
@@ -369,12 +815,16 @@ In den Tabellen verweist die Spalte „Regeln“ auf die Nummern aus [5.2](#52-i
 
 | Geschäftsmethode | Event | Regeln |
 |---|---|---|
-| `scheduleMatch({ matchId, date, matchday?, opponent, venue, competition })` | `MatchScheduled { matchId, date, matchday, opponent, venue, competition }` | 1, 5, 8 |
+| `scheduleMatch({ matchId, date, matchday?, opponent?, venue?, competition? })` | `MatchScheduled { matchId, date, matchday, opponent, venue, competition }` | 1, 5, 8 |
 | `rescheduleMatch(matchId, date)` | `MatchRescheduled { matchId, date }` | 1, 5 |
 | `changeMatchday(matchId, matchday)` | `MatchdayChanged { matchId, matchday }` | 1, 5, 8 |
+| `removeMatchday(matchId)` | `MatchdayRemoved { matchId }` | 1, 5 |
 | `changeOpponent(matchId, opponent)` | `OpponentChanged { matchId, opponent }` | 1, 5 |
+| `removeOpponent(matchId)` | `OpponentRemoved { matchId }` | 1, 5 |
 | `changeVenue(matchId, venue)` | `VenueChanged { matchId, venue }` (Heim, Auswärts, Neutral) | 1, 5 |
+| `removeVenue(matchId)` | `VenueRemoved { matchId }` | 1, 5 |
 | `changeCompetition(matchId, competition)` | `CompetitionChanged { matchId, competition }` (Liga, Pokal, Test, Turnier) | 1, 5 |
+| `removeCompetition(matchId)` | `CompetitionRemoved { matchId }` | 1, 5 |
 | `recordResult(matchId, goalsFor, goalsAgainst)` | `MatchResultRecorded { matchId, goalsFor, goalsAgainst }` | 1, 5, 8 |
 | `clearResult(matchId)` | `MatchResultCleared { matchId }` | 1, 5 |
 | `writeMatchNotes(matchId)` | `MatchNotesWritten { matchId }` (Text als Datei) | 1, 5 |
@@ -458,7 +908,7 @@ Geschäftsmethoden liefern im `Err`-Fall einen der folgenden Fehler. Die Routen 
 | `InvalidValue` | Wert außerhalb des erlaubten Bereichs. | `422` |
 | `CardAlreadyShown` / `CardNotShown` | Karte wurde bereits gezeigt bzw. nicht gezeigt. | `422` |
 
-Dazu kommen die Fehler aus Repository und Service: `TeamNotFound` (`404`), `ConcurrencyConflict` (`409`), `DuplicateTeam` (`409`) und `LastTeam` (`422`).
+Dazu kommen die Fehler aus Repository und Service: `TeamNotFound` (`404`), `ConcurrencyConflict` (`409`), `EditConflict` (`409`, Daten des Formulars wurden inzwischen geändert), `DuplicateTeam` (`409`) und `LastTeam` (`422`).
 
 ### 5.4 Personenbezogene Daten (DSGVO)
 
@@ -559,7 +1009,7 @@ Read-Models (Projektionen) beantworten alle lesenden Anfragen, die mehr als ein 
 | Kader | `teamId` → `playerId` | Reiter `Kader`, Spielerauswahl in Bewertungen und Filtern |
 | Termine | `teamId` → Termin-ID | Reiter `Termine` (Liste der Spieltage und Trainings) |
 | Termin-Detail | `teamId` → Termin-ID → `playerId` | Bewertungsansicht eines Termins, CSV-Export |
-| Auswertung | `teamId` | Reiter `Auswertungen`, Saisonbilanz teilen |
+| Auswertung | `teamId` | Reiter `Auswertungen`, Saisonbilanz teilen (berechnet aus Termine und Termin-Detail, kein eigener Speicher) |
 
 #### 5.5.3 Team-Übersicht
 
@@ -605,7 +1055,7 @@ Je Team und Spieler:
 |---|---|
 | `playerId` | Verweis auf das Spielerprofil |
 | `shirtNumber` | Rückennummer (optional) |
-| `position` | TW, AB, MF, ST |
+| `position` | TW, AB, MF, ST, AR (Allrounder), optional |
 | `active` | aktiv bzw. inaktiv |
 
 Beim Ausliefern ergänzt das Backend aus dem Profil: Name, Vorname, Geburtsdatum, starker Fuß und ob ein Foto vorhanden ist.
@@ -644,16 +1094,9 @@ Der Kommentartext wird beim Ausliefern aus der Datei ergänzt. Der CSV-Export (s
 
 #### 5.5.8 Auswertung
 
-Je Team. Es zählen nur Bewertungen mit `counts = true`.
+Die Auswertung ist kein eigenes, vorberechnetes Read-Model. Weil der Zeitraum frei wählbar ist, berechnet der Service sie bei jeder Anfrage aus Termine ([5.5.6](#556-termine)) und Termin-Detail ([5.5.7](#557-termin-detail)). Die Datenmenge eines Teams ist klein (etwa 110 Termine mit je 20 Spielern), die Berechnung im Speicher deshalb schnell. Es zählen nur Bewertungen mit `counts = true`; Kennzahlen und Rechenregeln stehen in [4.4](#44-auswertungen).
 
-| Bereich | Inhalt |
-|---|---|
-| Team-Bilanz | Spiele, Siege, Unentschieden, Niederlagen, Tore, Gegentore, Anzahl Trainings |
-| Je Spieler (Spiel) | Einsätze, davon Startelf, Minuten, Tore, Vorlagen, Paraden, Karten, Ø-Leistungsnote, Ø-Fairness, Ø-Sterne je Eigenschaft |
-| Je Spieler (Training) | Trainingsbeteiligung (anwesend und verspätet im Verhältnis zu allen erfassten Trainings), Ø-Leistungsnote, Ø-Fairness, Ø-Sterne je Eigenschaft |
-| Ranglisten | z. B. Torschützen, Vorlagengeber, beste Ø-Note (abgeleitet aus den Werten je Spieler) |
-
-_TODO: Genaue Kennzahlen und Ranglisten mit Abschnitt 4.4 abstimmen._
+Die Berechnung ist eine reine Funktion ohne I/O (Termine und Bewertungen rein, Kennzahlen raus) und wird von Auswertungen und Saisonbilanz gemeinsam genutzt.
 
 ## 6. API
 
@@ -688,7 +1131,7 @@ Erkennt das Frontend eine neue Revision, lädt es die aktuelle Ansicht neu. Unge
 ### 7.3 Gleichzeitige Änderungen
 
 - Gleichzeitige Änderungen am selben Team erkennt das Backend über optimistisches Sperren und löst sie durch einmaliges Neuladen und erneutes Aufrufen der Geschäftsmethode (siehe „Team speichern“).
-- Ändern zwei Trainer denselben Wert (z. B. dieselbe Note), gilt die zuletzt gespeicherte Änderung. Beide Änderungen bleiben als Events nachvollziehbar.
+- Hat ein anderer Trainer die Daten eines Formulars geändert, seit es geöffnet wurde (z. B. die Bewertung desselben Spielers), wird das Speichern mit `409 EditConflict` abgelehnt. Der Trainer lädt neu und wiederholt seine Eingaben. So wird keine Änderung unbemerkt überschrieben.
 - Wird eine Änderung fachlich abgelehnt, weil sich der Stand inzwischen geändert hat (z. B. Spieler wurde von einem anderen Trainer aus dem Kader entfernt), zeigt das Frontend die Fehlermeldung und lädt die Ansicht neu.
 
 ### 7.4 Bewusst nicht vorgesehen
@@ -726,6 +1169,10 @@ _TODO_
 ### 8.3 Migration von Bestandsdaten
 
 _TODO_
+
+### 8.4 Spieler auf Anfrage löschen
+
+_TODO: Wie der Betreiber einen Spieler findet und löscht (Umfang siehe [5.4.4](#544-löschen))._
 
 ## 9. Offene Punkte
 
