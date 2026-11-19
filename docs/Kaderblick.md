@@ -25,10 +25,11 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | **Trainer** | Sind Nutzer der App. Jeder Trainer ist in der Trainer-Konfiguration (siehe [8.1](#81-konfiguration)) mit Trainer-Id (E-Mail), Name und eigenem Zugangsschlüssel hinterlegt. E-Mail und Name sind personenbezogene Daten und stehen deshalb nie in Events. Mit dem Zugangsschlüssel authentifiziert sich ein Trainer im Backend. Die Einstellungen eines Trainers werden unter `./data/trainer/{trainerId}/settings.json` abgelegt. Dort werden das aktive Team, die Trainingszeit (Default 90 min, Vorbelegung der Trainingsdauer), die Darstellung (Hell, Dunkel, Wie System) und die Standard-Spielzeit (Default 12 min, Vorbelegung der gespielten Minuten in der Spielbewertung) hinterlegt. |
 | **Zugangsschlüssel** | Ein persönliches Geheimnis je Trainer, mit dem er sich am Backend anmeldet. Beim Login prüft das Backend den Schlüssel gegen die Trainer-Konfiguration und setzt bei Erfolg ein Session-Cookie (siehe Sitzung). Der Schlüssel selbst wird danach nicht mehr übertragen. |
 | **Sitzung** | Ein signiertes und verschlüsseltes Session-Cookie (`@fastify/secure-session`) mit `trainerId` und Ablaufzeit. Cookie-Attribute: `HttpOnly`, `Secure`, `SameSite=Strict`, `Max-Age` von 30 Tagen. Die Ablaufzeit wird serverseitig geprüft; nach Ablauf oder Abmelden ist eine erneute Anmeldung nötig. `Secure` setzt HTTPS voraus. |
-| **Spieltag** | Ein Spieltag ist ein bewertbares Ereignis in der Anwendung. Es legt ein Datum fest, optional außerdem Spieltag-Nummer, Gegner, Ort (Heim, Auswärts, Neutral), Wettbewerb (Liga, Pokal, Test, Turnier), Notizen und Ergebnis (Tore Team, Tore Gegner). |
-| **Training** | Eine Trainingseinheit ist ein weiteres, bewertbares Ereignis in der Anwendung. Es legt Datum, Dauer, Thema und Schwerpunkte (z. B. Technik, Taktik, Kondition) sowie Notizen fest. |
-| **Bewertung** | Es werden zwei Arten von Bewertungen unterschieden: Trainingsbewertung und Spielbewertung. Eine Trainingsbewertung erfasst die Leistung eines Spielers bei einer Trainingseinheit (Training). Eine Spielbewertung erfasst die Leistung eines Spielers an einem Spieltag. Eine Bewertung ist eindeutig durch Termin und Spieler bestimmt und hat keine eigene ID. Eine Spielbewertung enthält den Einsatz (Startelf, Eingewechselt, Nicht dabei), die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers), Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Tore, Vorlagen, Paraden und Karten (Gelb, Gelb-Rot, Rot) sowie einen optionalen Kommentar. Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet. Eine Trainingsbewertung enthält Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Anwesenheit (Anwesend, Verspätet, Entschuldigt und Unentschuldigt) und einen optionalen Kommentar. |
-| **Kommentar / Notiz** | Freitext zu einer Bewertung oder Spieltag/Training. Freitexte gelten als personenbezogen. Daher werden sie nicht in Events gespeichert, sondern auf dem Dateisystem. Kommentare zu Bewertungen werden je Termin und Spieler unter `./data/team/{teamId}/match/{matchId}/comments/{playerId}.txt` bzw. `./data/team/{teamId}/training/{trainingId}/comments/{playerId}.txt` gespeichert. Notizen zu Spieltagen oder Trainings werden hingegen unter `./data/team/{teamId}/match/{matchId}/notes.txt` oder `./data/team/{teamId}/training/{trainingId}/notes.txt` gespeichert. |
+| **Termin** | Oberbegriff für Spieltag und Training: ein Ereignis, bei dem die Spieler eines Teams bewertet werden. Jeder Termin hat eine Termin-ID (UUID, innerhalb des Teams eindeutig), ein Datum, eine optionale Notiz und je Spieler höchstens eine Bewertung. Ein Termin ist entweder ein Spieltag oder ein Training. |
+| **Spieltag** | Ein Spieltag ist ein Termin, an dem ein Spiel stattfindet. Er hat ein Datum, optional außerdem Spieltag-Nummer, Gegner, Ort (Heim, Auswärts, Neutral), Wettbewerb (Liga, Pokal, Test, Turnier), Notizen und Ergebnis (Tore Team, Tore Gegner). |
+| **Training** | Ein Training (Trainingseinheit) ist ein Termin mit Datum, Dauer, Thema, Schwerpunkten (z. B. Technik, Taktik, Kondition) und optionaler Notiz. |
+| **Bewertung** | Die Leistung eines Spielers bei einem Termin. Gemeinsam sind allen Bewertungen Leistungsnote, Fairness, Eigenschaften und Kommentar. Es werden zwei Arten unterschieden: Spielbewertung und Trainingsbewertung. Eine Trainingsbewertung erfasst die Leistung eines Spielers bei einer Trainingseinheit (Training). Eine Spielbewertung erfasst die Leistung eines Spielers an einem Spieltag. Eine Bewertung ist eindeutig durch Termin und Spieler bestimmt und hat keine eigene ID. Eine Spielbewertung enthält den Einsatz (Startelf, Eingewechselt, Nicht dabei), die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers), Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Tore, Vorlagen, Paraden und Karten (Gelb, Gelb-Rot, Rot) sowie einen optionalen Kommentar. Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet. Eine Trainingsbewertung enthält Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Anwesenheit (Anwesend, Verspätet, Entschuldigt und Unentschuldigt) und einen optionalen Kommentar. |
+| **Kommentar / Notiz** | Freitext zu einer Bewertung (Kommentar) oder zu einem Termin (Notiz). Freitexte gelten als personenbezogen. Daher werden sie nicht in Events gespeichert, sondern auf dem Dateisystem: Kommentare je Termin und Spieler unter `./data/team/{teamId}/appointment/{appointmentId}/comments/{playerId}.txt`, Notizen unter `./data/team/{teamId}/appointment/{appointmentId}/notes.txt`. |
 | **Event** | Eine im Event Store gespeicherte fachliche Tatsache, z. B. `TeamCreated`. Events sind unveränderlich und enthalten keine personenbezogenen Daten. |
 
 ## 3. Getroffene Entscheidungen
@@ -48,8 +49,8 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Aktives Team nach dem Löschen | Ist das gelöschte Team bei einem Trainer als aktives Team hinterlegt, wird sein aktives Team auf das nächste verfügbare Team gewechselt: das Team mit der neuesten Saison, bei Gleichstand alphabetisch nach Name. Die Umstellung erfolgt beim nächsten Lesen der Einstellungen: Das Backend prüft, ob das hinterlegte Team noch existiert, wählt sonst das nächste Team und speichert es. Beim Löschen eines Teams werden keine Einstellungsdateien angefasst. |
 | Immer ein aktives Team | In der Anwendung muss immer ein Team aktiv sein. Das letzte noch vorhandene Team kann deshalb nicht gelöscht werden; der Versuch wird mit `422` abgelehnt. Geprüft wird über die Projektion der Team-Übersicht. Das ist wie bei doppelten Namen eine bewusste Ausnahme von der Regel „Read-Models nie für Invarianten“, weil die Regel mehrere Teams betrifft. In seltenen Fällen (zwei Trainer löschen gleichzeitig die letzten beiden Teams) können dadurch kurzzeitig keine Teams vorhanden sein; dann erzwingt das Frontend den Dialog „Team anlegen“. |
 | Sichtbarkeit von Teams | Alle Trainer sehen und bearbeiten alle Teams. Es gibt keine Zuordnung von Trainern zu Teams. |
-| Spieltag gelöscht | Wird ein Spieltag gelöscht, dann verfallen auch alle zugehörigen Bewertungen: Die Events bleiben unverändert, Aggregate und Read-Models ignorieren die Bewertungen. Die zugehörigen Kommentar- und Notizdateien werden gelöscht. |
-| Training gelöscht | Wird ein Training gelöscht, dann verfallen auch alle zugehörigen Bewertungen: Die Events bleiben unverändert, Aggregate und Read-Models ignorieren die Bewertungen. Die zugehörigen Kommentar- und Notizdateien werden gelöscht. |
+| Termin gelöscht | Wird ein Termin (Spieltag oder Training) gelöscht, dann verfallen auch alle zugehörigen Bewertungen: Die Events bleiben unverändert, Aggregate und Read-Models ignorieren die Bewertungen. Die zugehörigen Kommentar- und Notizdateien werden gelöscht. |
+| Termin als Basisklasse | Spieltag und Training sind Termine. Im Aggregate gibt es die abstrakte Basisklasse `Appointment` mit den Unterklassen `Match` und `Training` sowie die abstrakte Basisklasse `Rating` mit `MatchRating` und `TrainingRating`. Was beide gemeinsam haben (Datum, Notiz, Löschen, Leistungsnote, Fairness, Eigenschaften, Kommentar, Zurücksetzen), hat gemeinsame Geschäftsmethoden und Events; nur das Typspezifische ist getrennt (siehe [5.3](#53-geschäftsmethoden-und-events)). |
 | Team als Klasse | Das Team-Aggregate wird als Klasse `Team` umgesetzt (objektorientierter Stil). Der Zustand ist privat und nur über Geschäftsmethoden änderbar. |
 | Team (Aggregate) einlesen | Ein Team soll nur über ein TeamRepository eingelesen werden. Das Repository liest die Events des Streams und erzeugt das Team über `Team.fromEvents(events)`. Dabei wird für jedes Event die private Methode `#apply(event)` aufgerufen. |
 | Team-Events abspielen | `#apply` prüft nicht: Ein gespeichertes Event ist eine Tatsache und lässt sich immer anwenden, auch wenn sich Regeln seitdem geändert haben. `#apply` übernimmt das Event in den Zustand und leitet nur fachliche Folgen ab (z. B. verfallene Bewertungen). |
@@ -64,7 +65,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | ID-Vergabe | Alle IDs vergibt das Backend: Teams eine fortlaufende Nummer, Spieler, Spieltage und Trainings eine zufällige UUID. |
 | Einsatz im Spiel | Startelf, Eingewechselt oder Nicht dabei, dazu die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers). Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. |
 | Teilnahme am Training | Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet, nicht bei Entschuldigt oder Unentschuldigt. |
-| Fachlich feine Events | Je fachlicher Änderung ein Event (z. B. `MatchPerformanceGraded`, `GoalsRecorded`, `TeamRenamed`), kein Event je Formular. Werte, die sich nicht geändert haben, erzeugen keine Events; so bleibt die Historie aussagekräftig. |
+| Fachlich feine Events | Je fachlicher Änderung ein Event (z. B. `PerformanceGraded`, `GoalsRecorded`, `TeamRenamed`), kein Event je Formular. Werte, die sich nicht geändert haben, erzeugen keine Events; so bleibt die Historie aussagekräftig. |
 | Einsatz zuerst | Leistungswerte können erst erfasst werden, wenn Einsatz (Startelf, Eingewechselt) bzw. Anwesenheit (Anwesend, Verspätet) erfasst ist. Es gibt keine automatische Erfassung des Einsatzes. |
 | Werte verfallen bei Nicht dabei | Wird ein Spieler auf Nicht dabei, Entschuldigt oder Unentschuldigt gesetzt, verfallen seine Leistungswerte für diesen Termin. Wird er danach wieder als Startelf, Eingewechselt, Anwesend oder Verspätet erfasst, beginnt die Erfassung leer. |
 | Trainerangabe als Datei | Das optionale Feld Trainer eines Teams enthält Namen und wird als Datei `./data/team/{teamId}/coaches.txt` abgelegt. Das Event vermerkt nur die Änderung. |
@@ -251,17 +252,17 @@ Termine haben nur ein Datum, keine Uhrzeit. Die Daten der Listen stammen aus dem
 Ablauf im Backend:
 
 1. Die Route prüft die Eingaben mit Zod.
-2. Der Service vergibt eine zufällige `matchId`. Ist eine Notiz angegeben, schreibt er zuerst `match/{matchId}/notes.txt`.
-3. Er lädt das Team, ruft `scheduleMatch(...)` auf und je nach Eingabe `recordResult(...)` und `writeMatchNotes(...)`, und speichert alle Events in einem Schreibvorgang.
+2. Der Service vergibt eine zufällige `matchId`. Ist eine Notiz angegeben, schreibt er zuerst `appointment/{matchId}/notes.txt`.
+3. Er lädt das Team, ruft `scheduleMatch(...)` auf und je nach Eingabe `recordResult(...)` und `writeAppointmentNotes(...)`, und speichert alle Events in einem Schreibvorgang.
 4. Antwort: `201` mit der `matchId`.
 
 **Spieltag bearbeiten**
 
-Der Dialog **Spieltag bearbeiten** wird aus der Bewertungsansicht geöffnet und enthält dieselben Felder, vorbelegt mit den aktuellen Werten. Jedes Feld wird sofort gespeichert; der Service ruft die passende Geschäftsmethode auf (`rescheduleMatch`, `changeMatchday`, `removeMatchday`, `changeOpponent`, `removeOpponent`, `changeVenue`, `removeVenue`, `changeCompetition`, `removeCompetition`, `recordResult`, `clearResult`, `writeMatchNotes`, `removeMatchNotes`). Ein geleertes Feld gilt als Entfernen. Das Ergebnis wird erst gespeichert, wenn beide Werte eingetragen oder beide geleert sind. **Schließen** beendet den Dialog. Antwort je Feld: `200`.
+Der Dialog **Spieltag bearbeiten** wird aus der Bewertungsansicht geöffnet und enthält dieselben Felder, vorbelegt mit den aktuellen Werten. Jedes Feld wird sofort gespeichert; der Service ruft die passende Geschäftsmethode auf (`rescheduleAppointment`, `changeMatchday`, `removeMatchday`, `changeOpponent`, `removeOpponent`, `changeVenue`, `removeVenue`, `changeCompetition`, `removeCompetition`, `recordResult`, `clearResult`, `writeAppointmentNotes`, `removeAppointmentNotes`). Ein geleertes Feld gilt als Entfernen. Das Ergebnis wird erst gespeichert, wenn beide Werte eingetragen oder beide geleert sind. **Schließen** beendet den Dialog. Antwort je Feld: `200`.
 
 **Spieltag löschen**
 
-Der Dialog **Spieltag bearbeiten** enthält den Button **Löschen**. Der Bestätigungsdialog nennt die Folgen: Alle Bewertungen dieses Spieltags verfallen, Notiz und Kommentare werden gelöscht, ein Wiederherstellen ist nicht möglich. Der Service ruft `deleteMatch(...)` auf, speichert `MatchDeleted` und löscht danach `match/{matchId}/`. Antwort: `204`.
+Der Dialog **Spieltag bearbeiten** enthält den Button **Löschen**. Der Bestätigungsdialog nennt die Folgen: Alle Bewertungen dieses Spieltags verfallen, Notiz und Kommentare werden gelöscht, ein Wiederherstellen ist nicht möglich. Der Service ruft `deleteAppointment(...)` auf, speichert `AppointmentDeleted` und löscht danach `appointment/{matchId}/`. Antwort: `204`.
 
 #### 4.3.2 Trainings
 
@@ -277,16 +278,16 @@ Der Dialog **Spieltag bearbeiten** enthält den Button **Löschen**. Der Bestät
 | Datum | ja | gültiges Datum | heute |
 | Dauer | ja | ganze Zahl 1–600 Minuten | Trainingszeit aus den Einstellungen des Trainers |
 | Thema | nein | Freitext bis 200 Zeichen | – |
-| Schwerpunkte | nein | Mehrfachauswahl aus der festen Liste (siehe [5.3.4](#534-trainings)) | – |
+| Schwerpunkte | nein | Mehrfachauswahl aus der festen Liste (siehe [5.3.5](#535-trainings)) | – |
 | Notiz | nein | Freitext bis 2000 Zeichen | – |
 
 Der Button **Wie letztes Training** füllt Dauer, Thema und Schwerpunkte mit den Werten des zuletzt stattgefundenen Trainings vor. Trainings werden einzeln angelegt; Serien gibt es nicht.
 
-Ablauf im Backend wie bei Spieltagen: zufällige `trainingId`, Notiz zuerst als Datei, dann `scheduleTraining(...)` und ggf. `writeTrainingNotes(...)` in einem Schreibvorgang. Antwort: `201` mit der `trainingId`.
+Ablauf im Backend wie bei Spieltagen: zufällige `trainingId`, Notiz zuerst als Datei, dann `scheduleTraining(...)` und ggf. `writeAppointmentNotes(...)` in einem Schreibvorgang. Antwort: `201` mit der `trainingId`.
 
 **Training bearbeiten und löschen**
 
-Wie bei Spieltagen, mit den Geschäftsmethoden `rescheduleTraining`, `changeTrainingDuration`, `changeTrainingTopic`, `changeTrainingFocus`, `writeTrainingNotes`, `removeTrainingNotes` bzw. `deleteTraining`. Beim Löschen werden `training/{trainingId}/` mit Notiz und Kommentaren gelöscht.
+Wie bei Spieltagen, mit den Geschäftsmethoden `rescheduleAppointment`, `changeTrainingDuration`, `changeTrainingTopic`, `changeTrainingFocus`, `writeAppointmentNotes`, `removeAppointmentNotes` bzw. `deleteAppointment`. Beim Löschen wird `appointment/{trainingId}/` mit Notiz und Kommentaren gelöscht.
 
 #### 4.3.3 Bewertungsansicht
 
@@ -302,7 +303,7 @@ Termindaten wie in der Liste, dazu die Notiz und der Button **Bearbeiten** (Term
 - Inaktive Spieler erscheinen nur, wenn für sie bereits etwas erfasst ist, ausgegraut und nur lesbar.
 - Jede Zeile zeigt Foto, Name, Einsatz bzw. Anwesenheit (oder „nicht erfasst“), Leistungsnote und bei Spieltagen Tore und Karten.
 - Einsatz bzw. Anwesenheit lassen sich direkt in der Zeile wählen und werden sofort gespeichert.
-- **Alle Startelf** (Spieltag) bzw. **Alle anwesend** (Training) erfasst sofort alle aktiven Spieler, für die noch nichts erfasst ist (siehe [5.3.5](#535-spielbewertung) und [5.3.6](#536-trainingsbewertung)).
+- **Alle Startelf** (Spieltag) bzw. **Alle anwesend** (Training) erfasst sofort alle aktiven Spieler, für die noch nichts erfasst ist (siehe [5.3.7](#537-spielbewertung) und [5.3.8](#538-trainingsbewertung)).
 - Ein Klick auf einen Spieler öffnet den Dialog **Bewertung**.
 
 **Dialog Bewertung (Spieltag)**
@@ -334,7 +335,7 @@ Verhalten in beiden Dialogen:
 - Wird Nicht dabei, Entschuldigt oder Unentschuldigt gewählt und sind bereits Leistungswerte erfasst, fragt der Dialog vorher nach, weil diese Werte dann verfallen.
 - Jeder Wert wird sofort gespeichert. **Schließen** beendet den Dialog.
 - **Vor/Zurück** wechselt zum nächsten bzw. vorherigen Spieler der Liste. Ein Textfeld, das gerade bearbeitet wird, wird vorher gespeichert; schlägt das fehl, bleibt der Dialog beim aktuellen Spieler.
-- **Zurücksetzen** setzt die Bewertung nach Rückfrage auf „nicht erfasst“ zurück (`resetMatchRating` bzw. `resetTrainingRating`); der Kommentar bleibt erhalten.
+- **Zurücksetzen** setzt die Bewertung nach Rückfrage auf „nicht erfasst“ zurück (`resetRating`); der Kommentar bleibt erhalten.
 
 **Ablauf im Backend**
 
@@ -352,7 +353,7 @@ Bewerten zwei Trainer gleichzeitig verschiedene Werte oder verschiedene Spieler,
 
 | Fall | Meldung |
 |---|---|
-| `404 MatchNotFound` / `TrainingNotFound` | „Dieser Termin wurde inzwischen gelöscht.“ Das Frontend wechselt zur Liste. |
+| `404 AppointmentNotFound` | „Dieser Termin wurde inzwischen gelöscht.“ Das Frontend wechselt zur Liste. |
 | `404 PlayerNotInSquad` | „Der Spieler wurde inzwischen aus dem Kader entfernt.“ Das Frontend lädt die Ansicht neu. |
 | `422 PlayerInactive` | „Der Spieler ist inaktiv und kann nicht bewertet werden.“ |
 | `422 NotParticipating` | „Leistungswerte können erst nach Einsatz bzw. Anwesenheit erfasst werden.“ |
@@ -720,6 +721,28 @@ Bewusst **keine** Aggregates sind:
 | Trainer-Einstellungen | Keine Invarianten, keine Historie nötig. | Datei `./data/trainer/{trainerId}/settings.json` |
 | Team-übergreifende Regeln (doppelter Name, letztes Team) | Betreffen mehrere Teams; bewusst über die Team-Übersicht geprüft (siehe Getroffene Entscheidungen). | – |
 
+**Aufbau des Aggregates**
+
+Das Team enthält neben den Teamdaten den Kader und die Termine. Termine und Bewertungen sind als Klassenhierarchien innerhalb des Aggregates modelliert; sie sind keine eigenen Aggregates und werden nur über Geschäftsmethoden von `Team` verändert.
+
+```
+Team
+├── Kader: Map<playerId, SquadMember>
+└── Termine: Map<appointmentId, Appointment>
+
+Appointment (abstrakt)          id, date, hasNotes, deleted, ratings: Map<playerId, Rating>
+├── Match                       matchday, opponent, venue, competition, result
+└── Training                    duration, topic, focus
+
+Rating (abstrakt)               grade, fairness, attributes, hasComment, counts()
+├── MatchRating                 participation, minutes, goals, assists, saves, cards
+└── TrainingRating              attendance
+```
+
+- `counts()` beantwortet jede Unterklasse selbst: `MatchRating` bei Startelf oder Eingewechselt, `TrainingRating` bei Anwesend oder Verspätet. Alle gemeinsamen Regeln (Einsatz zuerst, Werte verfallen) nutzen nur `counts()`.
+- Ein Termin erzeugt die passende Bewertungsart (`createRating()`), sodass gemeinsame Geschäftsmethoden nicht nach Spieltag und Training unterscheiden müssen.
+- Read-Models und Auswertung nutzen dieselben Klassen bzw. dieselbe Logik für „Leistung zählt“ (siehe [5.5.1](#551-grundsätze)).
+
 #### 5.1.2 Stream
 
 | Eigenschaft | Festlegung |
@@ -727,7 +750,7 @@ Bewusst **keine** Aggregates sind:
 | Name | `team-{teamId}`, z. B. `team-7` |
 | Kategorie | `team` (KurrentDB leitet sie am ersten Bindestrich ab) |
 | Inhalt | Alle Events aus [5.3](#53-geschäftsmethoden-und-events) eines Teams, beginnend mit `TeamCreated` |
-| Event-Typ | Name des Events, z. B. `MatchPerformanceGraded` |
+| Event-Typ | Name des Events, z. B. `PerformanceGraded` |
 | Event-Daten | JSON-Payload laut Zod-Schema des Events; beim Lesen wird jedes Event damit geprüft |
 | Weitere Streams | Keine |
 
@@ -763,7 +786,7 @@ Alle Regeln werden in der Klasse `Team` durchgesetzt. Die Zod-Schemas der Routen
 7. **Werte verfallen:** Wird ein Spieler auf Nicht dabei bzw. Entschuldigt oder Unentschuldigt gesetzt, verfallen seine Leistungswerte für diesen Termin. Wird er danach wieder auf Startelf, Eingewechselt, Anwesend oder Verspätet gesetzt, beginnt die Erfassung leer. Der Wechsel zwischen Startelf und Eingewechselt bzw. zwischen Anwesend und Verspätet lässt die Werte unverändert. Kommentare sind keine Leistungswerte und bleiben erhalten.
 8. **Wertebereiche:** Leistungsnote 1–6 in halben Schritten, Fairness 1–6 ganzzahlig, Eigenschaften 0–5 Sterne ganzzahlig aus der festen Liste `effort` (Einsatz & Laufbereitschaft), `technique` (Technik), `gameIntelligence` (Spielverständnis), `duels` (Zweikampf), `teamSpirit` (Teamgeist). Tore, Vorlagen, Paraden, gespielte Minuten, Ergebnis und Trainingsdauer sind ganze Zahlen ≥ 0, die Spieltag-Nummer ist eine ganze Zahl ≥ 1.
 9. **Karten:** Jede Kartenart (Gelb, Gelb-Rot, Rot) kann je Spieler und Spieltag höchstens einmal gezeigt werden.
-10. **Verfallen beim Entfernen:** Wird ein Spieler aus dem Kader entfernt, verfallen alle seine Bewertungen in diesem Team. Wird ein Spieltag bzw. Training gelöscht, verfallen alle zugehörigen Bewertungen. Wird der Spieler später erneut hinzugefügt, beginnt er ohne Bewertungen.
+10. **Verfallen beim Entfernen:** Wird ein Spieler aus dem Kader entfernt, verfallen alle seine Bewertungen in diesem Team. Wird ein Termin gelöscht, verfallen alle zugehörigen Bewertungen. Wird der Spieler später erneut hinzugefügt, beginnt er ohne Bewertungen.
 11. **Zähler sind absolut:** Tore, Vorlagen und Paraden werden als absoluter Wert gesetzt („Tore = 2“), nicht als „+1“. Gleichzeitige Änderungen bleiben dadurch eindeutig.
 12. **Keine leeren Änderungen:** Entspricht der neue Wert dem bestehenden, entsteht kein Event; die Methode liefert trotzdem `Ok`.
 
@@ -807,86 +830,92 @@ In den Tabellen verweist die Spalte „Regeln“ auf die Nummern aus [5.2](#52-i
 
 Änderungen am Spielerprofil (Name, Geburtsdatum, starker Fuß, Foto) schreibt der Service in die Profildatei. Danach ruft er `noteProfileChanged` für jedes Team auf, in dessen Kader der Spieler ist, und speichert jedes Team einzeln. Das Event enthält keine Profildaten; es erhöht nur die Revision des Teams, damit andere Trainer die Änderung über das Polling erkennen. Schlägt das Schreiben für ein Team fehl, ist die Profildatei trotzdem aktuell; dieses Team zeigt die Änderung dann erst beim nächsten vollständigen Neuladen.
 
-#### 5.3.3 Spieltage
+#### 5.3.3 Termine (gemeinsam)
+
+Diese Methoden gelten für Spieltage und Trainings gleichermaßen. Alle Events enthalten die `appointmentId`.
 
 | Geschäftsmethode | Event | Regeln |
 |---|---|---|
-| `scheduleMatch({ matchId, date, matchday?, opponent?, venue?, competition? })` | `MatchScheduled { matchId, date, matchday, opponent, venue, competition }` | 1, 5, 8 |
-| `rescheduleMatch(matchId, date)` | `MatchRescheduled { matchId, date }` | 1, 5 |
-| `changeMatchday(matchId, matchday)` | `MatchdayChanged { matchId, matchday }` | 1, 5, 8 |
-| `removeMatchday(matchId)` | `MatchdayRemoved { matchId }` | 1, 5 |
-| `changeOpponent(matchId, opponent)` | `OpponentChanged { matchId, opponent }` | 1, 5 |
-| `removeOpponent(matchId)` | `OpponentRemoved { matchId }` | 1, 5 |
-| `changeVenue(matchId, venue)` | `VenueChanged { matchId, venue }` (Heim, Auswärts, Neutral) | 1, 5 |
-| `removeVenue(matchId)` | `VenueRemoved { matchId }` | 1, 5 |
-| `changeCompetition(matchId, competition)` | `CompetitionChanged { matchId, competition }` (Liga, Pokal, Test, Turnier) | 1, 5 |
-| `removeCompetition(matchId)` | `CompetitionRemoved { matchId }` | 1, 5 |
-| `recordResult(matchId, goalsFor, goalsAgainst)` | `MatchResultRecorded { matchId, goalsFor, goalsAgainst }` | 1, 5, 8 |
-| `clearResult(matchId)` | `MatchResultCleared { matchId }` | 1, 5 |
-| `writeMatchNotes(matchId)` | `MatchNotesWritten { matchId }` (Text als Datei) | 1, 5 |
-| `removeMatchNotes(matchId)` | `MatchNotesRemoved { matchId }` | 1, 5 |
-| `deleteMatch(matchId)` | `MatchDeleted { matchId }` | 1, 5, 10 |
+| `rescheduleAppointment(appointmentId, date)` | `AppointmentRescheduled { appointmentId, date }` | 1, 5 |
+| `writeAppointmentNotes(appointmentId)` | `AppointmentNotesWritten { appointmentId }` (Text als Datei) | 1, 5 |
+| `removeAppointmentNotes(appointmentId)` | `AppointmentNotesRemoved { appointmentId }` | 1, 5 |
+| `deleteAppointment(appointmentId)` | `AppointmentDeleted { appointmentId }` | 1, 5, 10 |
+
+#### 5.3.4 Spieltage
+
+Die Methoden für Spieltage lehnen mit `AppointmentNotFound` ab, wenn die ID zu einem Training gehört.
+
+| Geschäftsmethode | Event | Regeln |
+|---|---|---|
+| `scheduleMatch({ matchId, date, matchday?, opponent?, venue?, competition? })` | `MatchScheduled { appointmentId, date, matchday, opponent, venue, competition }` | 1, 5, 8 |
+| `changeMatchday(matchId, matchday)` | `MatchdayChanged { appointmentId, matchday }` | 1, 5, 8 |
+| `removeMatchday(matchId)` | `MatchdayRemoved { appointmentId }` | 1, 5 |
+| `changeOpponent(matchId, opponent)` | `OpponentChanged { appointmentId, opponent }` | 1, 5 |
+| `removeOpponent(matchId)` | `OpponentRemoved { appointmentId }` | 1, 5 |
+| `changeVenue(matchId, venue)` | `VenueChanged { appointmentId, venue }` (Heim, Auswärts, Neutral) | 1, 5 |
+| `removeVenue(matchId)` | `VenueRemoved { appointmentId }` | 1, 5 |
+| `changeCompetition(matchId, competition)` | `CompetitionChanged { appointmentId, competition }` (Liga, Pokal, Test, Turnier) | 1, 5 |
+| `removeCompetition(matchId)` | `CompetitionRemoved { appointmentId }` | 1, 5 |
+| `recordResult(matchId, goalsFor, goalsAgainst)` | `MatchResultRecorded { appointmentId, goalsFor, goalsAgainst }` | 1, 5, 8 |
+| `clearResult(matchId)` | `MatchResultCleared { appointmentId }` | 1, 5 |
 
 Der Gegner ist der Name eines Vereins bzw. einer Mannschaft und gilt nicht als personenbezogen.
 
-#### 5.3.4 Trainings
+#### 5.3.5 Trainings
+
+Die Methoden für Trainings lehnen mit `AppointmentNotFound` ab, wenn die ID zu einem Spieltag gehört.
 
 | Geschäftsmethode | Event | Regeln |
 |---|---|---|
-| `scheduleTraining({ trainingId, date, duration, topic, focus })` | `TrainingScheduled { trainingId, date, duration, topic, focus }` | 1, 5, 8 |
-| `rescheduleTraining(trainingId, date)` | `TrainingRescheduled { trainingId, date }` | 1, 5 |
-| `changeTrainingDuration(trainingId, minutes)` | `TrainingDurationChanged { trainingId, minutes }` | 1, 5, 8 |
-| `changeTrainingTopic(trainingId, topic)` | `TrainingTopicChanged { trainingId, topic }` | 1, 5 |
-| `changeTrainingFocus(trainingId, focus)` | `TrainingFocusChanged { trainingId, focus }` | 1, 5 |
-| `writeTrainingNotes(trainingId)` | `TrainingNotesWritten { trainingId }` (Text als Datei) | 1, 5 |
-| `removeTrainingNotes(trainingId)` | `TrainingNotesRemoved { trainingId }` | 1, 5 |
-| `deleteTraining(trainingId)` | `TrainingDeleted { trainingId }` | 1, 5, 10 |
+| `scheduleTraining({ trainingId, date, duration, topic, focus })` | `TrainingScheduled { appointmentId, date, duration, topic, focus }` | 1, 5, 8 |
+| `changeTrainingDuration(trainingId, minutes)` | `TrainingDurationChanged { appointmentId, minutes }` | 1, 5, 8 |
+| `changeTrainingTopic(trainingId, topic)` | `TrainingTopicChanged { appointmentId, topic }` | 1, 5 |
+| `changeTrainingFocus(trainingId, focus)` | `TrainingFocusChanged { appointmentId, focus }` | 1, 5 |
 
 Schwerpunkte (`focus`) stammen aus einer festen Liste: Technik, Taktik, Kondition, Torschuss, Spielform, Athletik, Standards, Torwart.
 
-#### 5.3.5 Spielbewertung
+#### 5.3.6 Bewertungen (gemeinsam)
 
-Alle Methoden erhalten `matchId` und `playerId`; beide stehen auch in jedem Event.
+Diese Methoden gelten für Spiel- und Trainingsbewertungen gleichermaßen. Alle Methoden erhalten `appointmentId` und `playerId`; beide stehen auch in jedem Event.
+
+| Geschäftsmethode | Event | Regeln |
+|---|---|---|
+| `gradePerformance(appointmentId, playerId, grade)` | `PerformanceGraded { grade }` | 1, 3–6, 8 |
+| `withdrawPerformanceGrade(appointmentId, playerId)` | `PerformanceGradeWithdrawn {}` | 1, 3–6 |
+| `gradeFairness(appointmentId, playerId, grade)` | `FairnessGraded { grade }` | 1, 3–6, 8 |
+| `withdrawFairnessGrade(appointmentId, playerId)` | `FairnessGradeWithdrawn {}` | 1, 3–6 |
+| `rateAttribute(appointmentId, playerId, attribute, stars)` | `AttributeRated { attribute, stars }` | 1, 3–6, 8 |
+| `writeRatingComment(appointmentId, playerId)` | `RatingCommentWritten {}` (Text als Datei) | 1, 3, 5 |
+| `removeRatingComment(appointmentId, playerId)` | `RatingCommentRemoved {}` | 1, 3, 5 |
+| `resetRating(appointmentId, playerId)` | `RatingReset {}` (zurück auf „nicht erfasst“, Werte verfallen, Kommentar bleibt) | 1, 3, 5 |
+
+#### 5.3.7 Spielbewertung
+
+Nur für Spieltage. Alle Methoden erhalten `matchId` und `playerId`; die Events enthalten `appointmentId` und `playerId`.
 
 | Geschäftsmethode | Event | Regeln |
 |---|---|---|
 | `recordParticipation(matchId, playerId, participation)` | `ParticipationRecorded { participation }` (`starting`, `substitute`, `absent`) | 1, 3, 4, 5, 7 |
 | `recordMinutesPlayed(matchId, playerId, minutes)` | `MinutesPlayedRecorded { minutes }` | 1, 3–6, 8 |
-| `gradeMatchPerformance(matchId, playerId, grade)` | `MatchPerformanceGraded { grade }` | 1, 3–6, 8 |
-| `withdrawMatchPerformanceGrade(matchId, playerId)` | `MatchPerformanceGradeWithdrawn {}` | 1, 3–6 |
-| `gradeMatchFairness(matchId, playerId, grade)` | `MatchFairnessGraded { grade }` | 1, 3–6, 8 |
-| `withdrawMatchFairnessGrade(matchId, playerId)` | `MatchFairnessGradeWithdrawn {}` | 1, 3–6 |
-| `rateMatchAttribute(matchId, playerId, attribute, stars)` | `MatchAttributeRated { attribute, stars }` | 1, 3–6, 8 |
 | `recordGoals(matchId, playerId, count)` | `GoalsRecorded { count }` | 1, 3–6, 8, 11 |
 | `recordAssists(matchId, playerId, count)` | `AssistsRecorded { count }` | 1, 3–6, 8, 11 |
 | `recordSaves(matchId, playerId, count)` | `SavesRecorded { count }` | 1, 3–6, 8, 11 |
 | `showCard(matchId, playerId, card)` | `CardShown { card }` (`yellow`, `yellowRed`, `red`) | 1, 3–6, 9 |
 | `withdrawCard(matchId, playerId, card)` | `CardWithdrawn { card }` | 1, 3–6 |
-| `writeMatchComment(matchId, playerId)` | `MatchCommentWritten {}` (Text als Datei) | 1, 3, 5 |
-| `removeMatchComment(matchId, playerId)` | `MatchCommentRemoved {}` | 1, 3, 5 |
-| `resetMatchRating(matchId, playerId)` | `MatchRatingReset {}` (zurück auf „nicht erfasst“, Werte verfallen) | 1, 3, 5 |
 | `markAllStarting(matchId)` | `ParticipationRecorded { playerId, participation: starting }` je aktivem Kaderspieler ohne erfassten Einsatz | 1, 5 |
 
 Die gespielten Minuten werden im Frontend mit der Standard-Spielzeit des Trainers vorbelegt und wie jeder andere Wert über `recordMinutesPlayed` gespeichert.
 
-#### 5.3.6 Trainingsbewertung
+#### 5.3.8 Trainingsbewertung
 
-Alle Methoden erhalten `trainingId` und `playerId`; beide stehen auch in jedem Event.
+Nur für Trainings. Alle Methoden erhalten `trainingId` und `playerId`; die Events enthalten `appointmentId` und `playerId`.
 
 | Geschäftsmethode | Event | Regeln |
 |---|---|---|
 | `recordAttendance(trainingId, playerId, attendance)` | `AttendanceRecorded { attendance }` (`present`, `late`, `excused`, `unexcused`) | 1, 3, 4, 5, 7 |
-| `gradeTrainingPerformance(trainingId, playerId, grade)` | `TrainingPerformanceGraded { grade }` | 1, 3–6, 8 |
-| `withdrawTrainingPerformanceGrade(trainingId, playerId)` | `TrainingPerformanceGradeWithdrawn {}` | 1, 3–6 |
-| `gradeTrainingFairness(trainingId, playerId, grade)` | `TrainingFairnessGraded { grade }` | 1, 3–6, 8 |
-| `withdrawTrainingFairnessGrade(trainingId, playerId)` | `TrainingFairnessGradeWithdrawn {}` | 1, 3–6 |
-| `rateTrainingAttribute(trainingId, playerId, attribute, stars)` | `TrainingAttributeRated { attribute, stars }` | 1, 3–6, 8 |
-| `writeTrainingComment(trainingId, playerId)` | `TrainingCommentWritten {}` (Text als Datei) | 1, 3, 5 |
-| `removeTrainingComment(trainingId, playerId)` | `TrainingCommentRemoved {}` | 1, 3, 5 |
-| `resetTrainingRating(trainingId, playerId)` | `TrainingRatingReset {}` (zurück auf „nicht erfasst“, Werte verfallen) | 1, 3, 5 |
 | `markAllPresent(trainingId)` | `AttendanceRecorded { playerId, attendance: present }` je aktivem Kaderspieler ohne erfasste Anwesenheit | 1, 5 |
 
-#### 5.3.7 Fachliche Fehler
+#### 5.3.9 Fachliche Fehler
 
 Geschäftsmethoden liefern im `Err`-Fall einen der folgenden Fehler. Die Routen bilden sie auf HTTP-Statuscodes ab.
 
@@ -899,7 +928,7 @@ Geschäftsmethoden liefern im `Err`-Fall einen der folgenden Fehler. Die Routen 
 | `PlayerNotInSquad` | Spieler ist nicht im Kader. | `404` |
 | `PlayerInactive` | Spieler ist inaktiv. | `422` |
 | `IdAlreadyUsed` | Termin-ID ist im Team bereits vergeben. | `409` |
-| `MatchNotFound` / `TrainingNotFound` | Termin existiert nicht oder ist gelöscht. | `404` |
+| `AppointmentNotFound` | Termin existiert nicht, ist gelöscht oder hat die falsche Art (z. B. Spieltag-Methode für ein Training). | `404` |
 | `NotParticipating` | Leistungswert ohne Einsatz bzw. Anwesenheit. | `422` |
 | `InvalidValue` | Wert außerhalb des erlaubten Bereichs. | `422` |
 | `CardAlreadyShown` / `CardNotShown` | Karte wurde bereits gezeigt bzw. nicht gezeigt. | `422` |
@@ -934,12 +963,9 @@ data/
     crest.jpg                       Wappen, Originalbild
     crest-cropped.jpg               Wappen, zugeschnitten
     coaches.txt                     Trainerangabe
-    match/{matchId}/
-      notes.txt                     Notiz zum Spieltag
-      comments/{playerId}.txt       Kommentar zur Spielbewertung
-    training/{trainingId}/
-      notes.txt                     Notiz zum Training
-      comments/{playerId}.txt       Kommentar zur Trainingsbewertung
+    appointment/{appointmentId}/
+      notes.txt                     Notiz zum Termin (Spieltag oder Training)
+      comments/{playerId}.txt       Kommentar zur Bewertung
   trainer/{trainerId}/
     settings.json                   aktives Team, Trainingszeit, Standard-Spielzeit, Darstellung
 ```
@@ -957,7 +983,7 @@ Das Wappen ist nicht personenbezogen, wird aber ebenfalls auf dem Dateisystem ab
 |---|---|
 | Spieler löschen (auf Anfrage) | Der Betreiber löscht `player/{playerId}/` und alle `comments/{playerId}.txt` in allen Teams von Hand (siehe [8.4](#84-spieler-auf-anfrage-löschen)). Events und Kaderzugehörigkeit bleiben unverändert. |
 | Spieler aus dem Kader entfernen | Nach `PlayerRemovedFromSquad` werden seine Kommentare in diesem Team gelöscht. Ist er danach in keinem Team mehr, löscht der tägliche Aufräumjob auch sein Profil. |
-| Spieltag bzw. Training löschen | Nach `MatchDeleted` bzw. `TrainingDeleted` wird das Verzeichnis des Termins mit Notiz und Kommentaren gelöscht. |
+| Termin löschen | Nach `AppointmentDeleted` wird `appointment/{appointmentId}/` mit Notiz und Kommentaren gelöscht. |
 | Team löschen | Nach `TeamDeleted` wird `team/{teamId}/` sofort gelöscht. Spieler, die danach in keinem Team mehr sind, löscht der tägliche Aufräumjob. |
 | Trainer entfernen | Der Eintrag wird aus der Trainer-Konfiguration entfernt und `trainer/{trainerId}/` gelöscht. |
 
@@ -1060,7 +1086,7 @@ Je Team und Termin:
 
 | Feld | Bedeutung |
 |---|---|
-| `id`, `type` | Termin-ID, `match` oder `training` |
+| `appointmentId`, `type` | Termin-ID, `match` oder `training` |
 | `date` | Datum |
 | Spieltag: `matchday`, `opponent`, `venue`, `competition` | Spieltag-Nummer, Gegner, Ort, Wettbewerb |
 | Spieltag: `goalsFor`, `goalsAgainst`, `outcome` | Ergebnis und daraus abgeleitet Sieg, Unentschieden oder Niederlage |
@@ -1154,7 +1180,7 @@ Fehler werden als Problem Details nach RFC 9457 geliefert (`Content-Type: applic
 
 | Feld | Inhalt |
 |---|---|
-| `type` | Name des Fehlers, z. B. `EditConflict`, `DuplicateTeam`, `ValidationError` (siehe [5.3.7](#537-fachliche-fehler)) |
+| `type` | Name des Fehlers, z. B. `EditConflict`, `DuplicateTeam`, `ValidationError` (siehe [5.3.9](#539-fachliche-fehler)) |
 | `title` | kurze, gleichbleibende Beschreibung des Fehlertyps |
 | `status` | HTTP-Statuscode |
 | `detail` | Beschreibung des konkreten Falls |
@@ -1173,7 +1199,7 @@ Fehlerantworten enthalten nie personenbezogene Daten, Stacktraces oder interne D
 | `304` | Unverändert (`If-None-Match`) |
 | `400` | `ValidationError`: Eingabe entspricht nicht dem Schema |
 | `401` | `Unauthenticated`: keine gültige Sitzung bzw. falscher Zugangsschlüssel |
-| `404` | Ressource existiert nicht oder ist gelöscht (`TeamNotFound`, `TeamDeleted`, `PlayerNotInSquad`, `MatchNotFound`, …) |
+| `404` | Ressource existiert nicht oder ist gelöscht (`TeamNotFound`, `TeamDeleted`, `PlayerNotInSquad`, `AppointmentNotFound`, …) |
 | `409` | Konflikt (`EditConflict`, `ConcurrencyConflict`, `DuplicateTeam`, `PlayerAlreadyInSquad`, `IdAlreadyUsed`) |
 | `413` | Bild größer als 5 MB |
 | `415` | Bild ist kein JPEG |
@@ -1491,7 +1517,7 @@ Leistungswerte werden nur übernommen, wenn die Leistung zählt (Startelf, Einge
    1. neue `teamId` vergeben (siehe [5.1.3](#513-vergabe-der-team-nummer)), `Team.create` und `TeamCreated` speichern;
    2. Wappen und Trainerangabe als Dateien schreiben;
    3. für jeden Spieler eine neue `playerId` vergeben, Profil und Fotos schreiben;
-   4. über die normalen Geschäftsmethoden Kader, Spieltage, Trainings und Bewertungen erzeugen (`addPlayer`, `scheduleMatch`, `recordResult`, `scheduleTraining`, `recordParticipation`, `recordAttendance`, `gradeMatchPerformance`, …) und Notizen bzw. Kommentare zuerst als Dateien schreiben. Spieler mit `active = false` werden erst danach inaktiv gesetzt, weil inaktive Spieler nicht bewertet werden können;
+   4. über die normalen Geschäftsmethoden Kader, Spieltage, Trainings und Bewertungen erzeugen (`addPlayer`, `scheduleMatch`, `recordResult`, `scheduleTraining`, `recordParticipation`, `recordAttendance`, `gradePerformance`, …) und Notizen bzw. Kommentare zuerst als Dateien schreiben. Spieler mit `active = false` werden erst danach inaktiv gesetzt, weil inaktive Spieler nicht bewertet werden können;
    5. alle Events des Teams in einem Schreibvorgang speichern.
 6. Verstößt ein Datensatz gegen eine Regel aus [5.2](#52-invarianten-und-regeln) (z. B. Note außerhalb des Bereichs), bricht der Import des Teams ab und nennt Termin- und Spieler-ID der alten App.
 7. Am Ende nennt das Skript je Team die neue `teamId` und die Anzahl importierter Spieler, Spieltage, Trainings und Bewertungen.
