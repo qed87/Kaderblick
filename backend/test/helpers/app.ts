@@ -3,6 +3,8 @@ import app from '../../src/app.ts';
 import type { Config } from '../../src/config.ts';
 import configPlugin from '../../src/plugins/config.ts';
 
+export const TEST_VERSION = '1.2.3-test';
+
 export const testConfig: Config = {
   trainersFile: '/config/trainers.json',
   sessionKey: '0'.repeat(64),
@@ -20,7 +22,7 @@ export const testConfig: Config = {
 export async function buildTestApp(overrides: Partial<Config> = {}): Promise<FastifyInstance> {
   const fastify = Fastify({ logger: false });
   await fastify.register(configPlugin, { config: { ...testConfig, ...overrides } });
-  await fastify.register(app);
+  await fastify.register(app, { version: TEST_VERSION });
   await fastify.ready();
   return fastify;
 }

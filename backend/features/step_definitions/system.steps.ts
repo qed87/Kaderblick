@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Then, When } from '@cucumber/cucumber';
-import packageJson from '../../package.json' with { type: 'json' };
+import { TEST_VERSION } from '../../test/helpers/app.ts';
 import type { KaderblickWorld } from '../support/world.ts';
 
 When('a visitor asks for the backend version', async function (this: KaderblickWorld) {
@@ -12,5 +12,5 @@ Then('the response status is {int}', function (this: KaderblickWorld, status: nu
 });
 
 Then('the response contains the version of the backend', function (this: KaderblickWorld) {
-  assert.deepEqual(this.response.json(), { version: packageJson.version });
+  assert.deepEqual(this.response.json(), { version: TEST_VERSION });
 });

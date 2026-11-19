@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import app from './app.ts';
 import { describeConfigError, loadConfig } from './config.ts';
 import configPlugin from './plugins/config.ts';
+import { loadVersion } from './version.ts';
 
 const config = await loadConfig(process.env).match(
   (loaded) => loaded,
@@ -11,13 +12,20 @@ const config = await loadConfig(process.env).match(
   },
 );
 
+const version = await loadVersion().match(
+  (loaded) => loaded,
+  (error) => {
+    throw new Error(`Version kann nicht gelesen werden: ${error.message}`);
+  },
+);
+
 const fastify = Fastify({
   logger: { level: config.logLevel },
   trustProxy: config.trustProxy,
 });
 
 await fastify.register(configPlugin, { config });
-await fastify.register(app);
+await fastify.register(app, { version });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
