@@ -36,7 +36,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 
 | Thema | Entscheidung |
 |---|---|
-| Team als Aggregate | Teams sollen als Aggregates betrachtet werden. Für jedes neues Team wird deshalb ein eigener Stream `team-{teamId}` angelegt. Ein Team besteht aus Kader (zugewiesene Spieler), Spieltage, Trainings und Bewertungen. |
+| Team als Aggregate | Teams sollen als Aggregates betrachtet werden. Für jedes neues Team wird deshalb ein eigener Stream `team-{teamId}` angelegt. Ein Team besteht aus Kader (zugewiesene Spieler), Terminen (Spieltage und Trainings) und deren Bewertungen. |
 | Gleicher Name + Saison eines Teams | Bewusste Ausnahme von der Regel „Read-Models nie für Invarianten“: Die Prüfung erfolgt über eine Projektion. Wegen eventual consistency kann es in seltenen Fällen zu Duplikaten kommen; das ist fachlich akzeptiert. |
 | Kaderspieler löschen | Wird ein Spieler aus dem Kader entfernt, so verfallen auch alle Bewertungen des Spielers in diesem Team: Die Events bleiben unverändert, Aggregate und Read-Models ignorieren die Bewertungen ab diesem Zeitpunkt. Die zugehörigen Kommentardateien werden gelöscht. |
 | Kaderspieler inaktiv | Wird ein Spieler im Kader inaktiv gesetzt, dann können keine Bewertungen mehr erfasst werden bis der Spieler wieder aktiviert wird. |
@@ -46,7 +46,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Fehlende personenbezogene Daten beim Lesen | Read-Models und Antworten ersetzen fehlende Dateien durch sinnvolle Standardwerte, z. B. Name „Gelöschter Spieler“, kein Foto, kein Kommentar. Fehlende Dateien sind kein Fehler. |
 | Team löschen | Beim Löschen eines Teams wird ein `TeamDeleted`-Event geschrieben, der Stream bleibt bestehen. Die Dateien unter `./data/team/{teamId}/` (Wappen, Notizen, Kommentare) werden sofort gelöscht. Auf ein gelöschtes Team werden keine weiteren Geschäftsmethoden angewendet, und es erscheint in keiner Übersicht mehr. |
 | Verwaiste Streams | Der Stream eines gelöschten Teams gilt 30 Tage nach dem `TeamDeleted`-Event als verwaist. Ein wiederkehrender Job räumt verwaiste Streams auf; er läuft alle 2 Monate. Ein gelöschtes Team wird dadurch frühestens 30 Tage und spätestens etwa 90 Tage nach dem Löschen aus dem Event Store entfernt. Der Job löscht die Streams endgültig (Tombstone), sodass ihre Nummern nie wieder vergeben werden; den Speicherplatz gibt ein anschließender Scavenge frei. |
-| Aktives Team nach dem Löschen | Ist das gelöschte Team bei einem Trainer als aktives Team hinterlegt, wird sein aktives Team auf das nächste verfügbare Team gewechselt: das Team mit der neuesten Saison, bei Gleichstand alphabetisch nach Name. Die Umstellung erfolgt beim nächsten Lesen der Einstellungen: Das Backend prüft, ob das hinterlegte Team noch existiert, wählt sonst das nächste Team und speichert es. Beim Löschen eines Teams werden keine Einstellungsdateien angefasst. |
+| Aktives Team nach dem Löschen | Ist das gelöschte Team bei einem Trainer als aktives Team hinterlegt, wird sein aktives Team auf das nächste verfügbare Team gewechselt: das Team mit der neuesten Saison, bei Gleichstand alphabetisch nach Name. Die Umstellung erfolgt beim nächsten Lesen der Einstellungen: Das Backend prüft, ob das hinterlegte Team noch existiert, wählt sonst das nächste Team und speichert es. Beim Löschen eines Teams werden keine Einstellungsdateien angefasst. Damit kein Trainer mit einem gelöschten Team weiterarbeitet, liest das Frontend die Einstellungen beim Start immer zuerst und lädt sie bei jeder Antwort `404 TeamDeleted` bzw. `TeamNotFound` neu (siehe [4.1.2](#412-aktives-team-nach-der-anmeldung)). |
 | Immer ein aktives Team | In der Anwendung muss immer ein Team aktiv sein. Das letzte noch vorhandene Team kann deshalb nicht gelöscht werden; der Versuch wird mit `422` abgelehnt. Geprüft wird über die Projektion der Team-Übersicht. Das ist wie bei doppelten Namen eine bewusste Ausnahme von der Regel „Read-Models nie für Invarianten“, weil die Regel mehrere Teams betrifft. In seltenen Fällen (zwei Trainer löschen gleichzeitig die letzten beiden Teams) können dadurch kurzzeitig keine Teams vorhanden sein; dann erzwingt das Frontend den Dialog „Team anlegen“. |
 | Sichtbarkeit von Teams | Alle Trainer sehen und bearbeiten alle Teams. Es gibt keine Zuordnung von Trainern zu Teams. |
 | Termin gelöscht | Wird ein Termin (Spieltag oder Training) gelöscht, dann verfallen auch alle zugehörigen Bewertungen: Die Events bleiben unverändert, Aggregate und Read-Models ignorieren die Bewertungen. Die zugehörigen Kommentar- und Notizdateien werden gelöscht. |
@@ -54,7 +54,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Team als Klasse | Das Team-Aggregate wird als Klasse `Team` umgesetzt (objektorientierter Stil). Der Zustand ist privat und nur über Geschäftsmethoden änderbar. |
 | Team (Aggregate) einlesen | Ein Team soll nur über ein TeamRepository eingelesen werden. Das Repository liest die Events des Streams und erzeugt das Team über `Team.fromEvents(events)`. Dabei wird für jedes Event die private Methode `#apply(event)` aufgerufen. |
 | Team-Events abspielen | `#apply` prüft nicht: Ein gespeichertes Event ist eine Tatsache und lässt sich immer anwenden, auch wenn sich Regeln seitdem geändert haben. `#apply` übernimmt das Event in den Zustand und leitet nur fachliche Folgen ab (z. B. verfallene Bewertungen). |
-| Geschäftsmethoden | Geschäftsmethoden (z. B. `team.ratePlayer(...)`) prüfen die Invarianten gegen den aktuellen Zustand und liefern `Result<void, DomainError>`. Ist die Operation zulässig, erzeugen sie ein Event über `#raise(event)`: Es wird über dasselbe `#apply` wie beim Einlesen angewendet und als Pending Event vorgemerkt. Ist sie unzulässig, entsteht kein Event und der Zustand bleibt unverändert. Ein neues Team entsteht über `Team.create(...)`. |
+| Geschäftsmethoden | Geschäftsmethoden (z. B. `team.ratePlayer(...)`) prüfen die Invarianten gegen den aktuellen Zustand und liefern ein Result-Objekt, welches im Fehlerfall ein `DomainError` zurückgibt. Ist die Operation zulässig, erzeugen sie ein Event über `#raise(event)`: Es wird über dasselbe `#apply` wie beim Einlesen angewendet und als Pending Event vorgemerkt. Ist sie unzulässig, entsteht kein Event und der Zustand bleibt unverändert. Ein neues Team entsteht über `Team.create(...)`. |
 | Team speichern | Das Team-Aggregate soll auch über das TeamRepository gespeichert werden. Hierzu werden die Pending Events gelesen und in die Event-Datenbank geschrieben. Dabei wird die beim Laden gelesene Revision als erwarteter Stream-Stand übergeben (optimistisches Sperren, bei einem neuen Team `NO_STREAM`). Weicht die Revision ab, wird das Team einmal neu geladen und die Geschäftsmethode erneut gegen den neuen Zustand aufgerufen (höchstens ein weiterer Schreibversuch). Schlägt auch dieser mit einem Konflikt fehl, wird mit `409` abgelehnt. |
 | Zugangsschlüssel pro Trainer | Jeder Trainer hat einen eigenen Zugangsschlüssel. Einzelne Trainer lassen sich so sperren, ohne dass alle anderen ihren Schlüssel ändern müssen. |
 | Ablage der Zugangsschlüssel | Die Trainer-Konfiguration ist eine JSON-Datei, deren Pfad über die Umgebungsvariable `KADERBLICK_TRAINERS_FILE` übergeben wird. Die Schlüssel stehen bewusst im Klartext darin. Wer die Datei lesen kann, kann sich als jeder Trainer anmelden; das wird zugunsten der einfachen Verwaltung akzeptiert. |
@@ -62,7 +62,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Schutz vor Durchprobieren | Höchstens 5 fehlgeschlagene Anmeldungen pro IP-Adresse in 15 Minuten, danach `429` (`@fastify/rate-limit`). |
 | Anmeldung über Session-Cookie | Der Zugangsschlüssel wird nur beim Login übertragen. Danach authentifiziert ein signiertes, verschlüsseltes Session-Cookie mit Ablaufzeit (`@fastify/secure-session`) die Anfragen. |
 | Direkte Kommunikation mit dem Backend | Jede Änderung geht sofort an das Backend. Ohne Verbindung zum Backend zeigt das Frontend einen Hinweis. |
-| ID-Vergabe | Alle IDs vergibt das Backend: Teams eine fortlaufende Nummer, Spieler, Spieltage und Trainings eine zufällige UUID. |
+| ID-Vergabe | Alle IDs vergibt das Backend: Teams eine fortlaufende Nummer, Spieler und Termine (Spieltage und Trainings) eine zufällige UUID. |
 | Einsatz im Spiel | Startelf, Eingewechselt oder Nicht dabei, dazu die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers). Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. |
 | Teilnahme am Training | Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet, nicht bei Entschuldigt oder Unentschuldigt. |
 | Fachlich feine Events | Je fachlicher Änderung ein Event (z. B. `PerformanceGraded`, `GoalsRecorded`, `TeamRenamed`), kein Event je Formular. Werte, die sich nicht geändert haben, erzeugen keine Events; so bleibt die Historie aussagekräftig. |
@@ -82,7 +82,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Geburtsdatum Pflicht | Ein neuer Spieler braucht Vorname, Name und Geburtsdatum. So lassen sich gleichnamige Spieler unterscheiden. |
 | Spieler endgültig löschen | Nur durch den Betreiber auf Anfrage (DSGVO), nicht in der App. Trainer entfernen Spieler aus dem Kader; Spieler ohne Team löscht der tägliche Aufräumjob. |
 | Kader übernehmen | Spieler eines anderen Teams lassen sich gesammelt übernehmen, mit Rückennummer und Position, ohne Bewertungen. Das Profil wird über die `playerId` geteilt, nicht kopiert. |
-| Termine ohne Uhrzeit | Spieltage und Trainings haben nur ein Datum. |
+| Termine ohne Uhrzeit | Termine (Spieltage und Trainings) haben nur ein Datum. |
 | Speichern je Feld | Bestehende Daten (Team, Kaderspieler, Termin, Bewertung, Einstellungen) werden ohne Speichern-Button bearbeitet: Jede Änderung eines Feldes wird sofort einzeln an das Backend geschickt und gespeichert. Auswahlfelder, Zahlen, Sterne und Schalter speichern bei der Änderung, Textfelder beim Verlassen des Feldes, Bilder nach dem Zuschneiden. Ungültige Eingaben werden nicht geschickt, der Fehler steht am Feld. Jedes Feld zeigt, ob es gerade gespeichert wird, gespeichert ist oder ein Fehler auftrat. Entspricht der Wert dem aktuellen Stand, entsteht kein Event (Regel 12 in [5.2](#52-invarianten-und-regeln)). Nur das Anlegen (Team, Spieler, Spieltag, Training) hat einen Speichern-Button, weil die Pflichtfelder zusammen erfasst werden. |
 | Bearbeitungskonflikt | Das Frontend schickt mit jedem Feld auch den Wert, den es zuletzt für dieses Feld geladen bzw. gespeichert hat. Weicht der aktuelle Wert im Backend davon ab, hat ein anderer Trainer das Feld inzwischen geändert: Der Service lehnt mit `409 EditConflict` ab und speichert nichts. Die Antwort enthält den aktuellen Wert; das Frontend zeigt ihn im Feld an mit dem Hinweis, dass ein anderer Trainer ihn geändert hat, und der Trainer kann seine Eingabe wiederholen. Änderungen an anderen Feldern lösen keinen Konflikt aus. Bilder sind ausgenommen. |
 | Keine Trainingsserien | Trainings werden einzeln angelegt; „Wie letztes Training“ übernimmt Dauer, Thema und Schwerpunkte als Vorschlag. |
@@ -103,11 +103,20 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 
 #### 4.1.2 Aktives Team nach der Anmeldung
 
-Nach der Anmeldung lädt das Frontend die Einstellungen des Trainers. Das Backend bestimmt dabei das aktive Team:
+Nach der Anmeldung und bei jedem Start bzw. Neuladen der Webanwendung lädt das Frontend zuerst die Einstellungen des Trainers, bevor es Teamdaten abfragt. Das Backend bestimmt dabei das aktive Team:
 
 - Ist ein Team hinterlegt und existiert es noch, bleibt es aktiv.
 - Ist keins hinterlegt oder wurde es gelöscht, wird das nächste verfügbare Team aktiv (neueste Saison, bei Gleichstand alphabetisch nach Name) und gespeichert.
 - Existiert noch kein Team (Ersteinrichtung), erscheint der Dialog „Team anlegen“ (siehe [4.5.1](#451-team-anlegen)). Er lässt sich nicht abbrechen; die Reiter sind erst danach nutzbar. Das neue Team wird automatisch das aktive Team des Trainers.
+
+**Aktives Team ist inzwischen gelöscht**
+
+Das aktive Team kann jederzeit von einem anderen Trainer gelöscht werden, auch während die Anwendung geöffnet ist. Damit dabei keine Fehler entstehen, gilt:
+
+- Das Frontend kennt die `activeTeamId` nur aus der letzten Antwort von `GET /me/settings`. Es speichert sie nicht dauerhaft im Browser und nimmt sie nicht aus der Adresszeile; auch die Startseite bzw. ein Lesezeichen führt immer zuerst über die Einstellungen.
+- Antwortet ein Endpunkt eines Teams mit `404 TeamDeleted` oder `404 TeamNotFound`, lädt das Frontend sofort die Einstellungen neu. Das Backend wählt dabei das nächste verfügbare Team (siehe oben). Das Frontend wechselt zur Startansicht dieses Teams und zeigt den Hinweis „Das bisherige Team wurde gelöscht. Aktiv ist jetzt {Name} {Saison}.“
+- Gibt es kein Team mehr, erscheint der Dialog „Team anlegen“.
+- Dieses Verhalten gilt für jede Ansicht, nicht nur für den Reiter `Team`. Die Fehlermeldungen in den einzelnen Abschnitten verweisen darauf.
 
 #### 4.1.3 Sitzung beenden
 
@@ -221,6 +230,7 @@ Die App bietet keine Funktion, einen Spieler endgültig zu löschen. Verlangt ei
 | `404 PlayerNotInSquad` | „Der Spieler wurde inzwischen aus dem Kader entfernt.“ Das Frontend lädt den Kader neu. |
 | `422` ungültige Eingabe | Meldung am betroffenen Feld |
 | `413` bzw. ungültiges Bild | „Das Foto muss ein JPEG-Bild bis 5 MB sein.“ |
+| `404 TeamDeleted` / `TeamNotFound` | „Das bisherige Team wurde gelöscht.“ Das Frontend wechselt zum nächsten verfügbaren Team (siehe [4.1.2](#412-aktives-team-nach-der-anmeldung)). |
 | `409 EditConflict` | „Dieser Wert wurde inzwischen von einem anderen Trainer geändert.“ Das Feld zeigt den aktuellen Wert; die Eingabe kann wiederholt werden. |
 | `409 ConcurrencyConflict` | „Der Kader wurde gerade von einem anderen Trainer geändert. Bitte erneut versuchen.“ |
 
@@ -358,6 +368,7 @@ Bewerten zwei Trainer gleichzeitig verschiedene Werte oder verschiedene Spieler,
 | `422 PlayerInactive` | „Der Spieler ist inaktiv und kann nicht bewertet werden.“ |
 | `422 NotParticipating` | „Leistungswerte können erst nach Einsatz bzw. Anwesenheit erfasst werden.“ |
 | `422` ungültige Eingabe | Meldung am betroffenen Feld |
+| `404 TeamDeleted` / `TeamNotFound` | „Das bisherige Team wurde gelöscht.“ Das Frontend wechselt zum nächsten verfügbaren Team (siehe [4.1.2](#412-aktives-team-nach-der-anmeldung)). |
 | `409 EditConflict` | „Dieser Wert wurde inzwischen von einem anderen Trainer geändert.“ Das Feld zeigt den aktuellen Wert; die Eingabe kann wiederholt werden. |
 | `409 ConcurrencyConflict` | „Der Termin wurde gerade von einem anderen Trainer geändert. Bitte erneut versuchen.“ |
 
@@ -572,7 +583,7 @@ War das gelöschte Team das aktive Team eines Trainers, wird beim nächsten Lese
 |---|---|
 | `409 DuplicateTeam` | „Ein Team mit diesem Namen und dieser Saison existiert bereits.“ |
 | `422 LastTeam` | „Das letzte Team kann nicht gelöscht werden. Lege zuerst ein weiteres Team an.“ |
-| `404 TeamDeleted` / `TeamNotFound` | „Dieses Team wurde inzwischen gelöscht.“ Das Frontend lädt danach die Einstellungen neu. |
+| `404 TeamDeleted` / `TeamNotFound` | „Das bisherige Team wurde gelöscht.“ Das Frontend wechselt zum nächsten verfügbaren Team (siehe [4.1.2](#412-aktives-team-nach-der-anmeldung)). |
 | `409 EditConflict` | „Dieser Wert wurde inzwischen von einem anderen Trainer geändert.“ Das Feld zeigt den aktuellen Wert; die Eingabe kann wiederholt werden. |
 | `409 ConcurrencyConflict` | „Das Team wurde gerade von einem anderen Trainer geändert. Bitte erneut versuchen.“ |
 
@@ -709,7 +720,7 @@ Versionsnummer des Frontends und des Backends. Das Backend liefert seine Version
 
 #### 5.1.1 Ein Aggregate: `Team`
 
-Kaderblick hat genau ein Aggregate, die Klasse `Team`. Es umfasst Teamdaten, Kader, Spieltage, Trainings und Bewertungen eines Teams in einer Saison.
+Kaderblick hat genau ein Aggregate, die Klasse `Team`. Es umfasst Teamdaten, Kader, Termine (Spieltage und Trainings) und Bewertungen eines Teams in einer Saison.
 
 Der Schnitt folgt den Regeln aus [5.2](#52-invarianten-und-regeln): Fast jede Bewertungsregel braucht gleichzeitig den Kader (Spieler im Kader, aktiv), den Termin (existiert, nicht gelöscht) und die bisherige Bewertung (Einsatz erfasst, Karte schon gezeigt). Getrennte Aggregates für Kader, Spieltage oder Trainings würden diese Regeln auf mehrere Konsistenzgrenzen verteilen. Nebenläufigkeit spricht nicht dagegen: Wenige Trainer arbeiten gleichzeitig an einem Team, und Konflikte werden durch einmaliges Neuladen aufgelöst.
 
@@ -1324,6 +1335,7 @@ Erkennt das Frontend eine neue Revision, lädt es die aktuelle Ansicht neu. Ein 
 
 - Gleichzeitige Änderungen am selben Team erkennt das Backend über optimistisches Sperren und löst sie durch einmaliges Neuladen und erneutes Aufrufen der Geschäftsmethode (siehe „Team speichern“).
 - Jedes Feld wird einzeln gespeichert. Hat ein anderer Trainer genau dieses Feld geändert, seit es geladen wurde, wird das Speichern mit `409 EditConflict` abgelehnt; das Frontend zeigt den aktuellen Wert, und der Trainer kann seine Eingabe wiederholen. So wird keine Änderung unbemerkt überschrieben.
+- Wurde das aktive Team gelöscht, lädt das Frontend die Einstellungen neu und wechselt zum nächsten verfügbaren Team (siehe [4.1.2](#412-aktives-team-nach-der-anmeldung)).
 - Wird eine Änderung fachlich abgelehnt, weil sich der Stand inzwischen geändert hat (z. B. Spieler wurde von einem anderen Trainer aus dem Kader entfernt), zeigt das Frontend die Fehlermeldung und lädt die Ansicht neu.
 
 ### 7.4 Bewusst nicht vorgesehen
@@ -1517,7 +1529,7 @@ Leistungswerte werden nur übernommen, wenn die Leistung zählt (Startelf, Einge
    1. neue `teamId` vergeben (siehe [5.1.3](#513-vergabe-der-team-nummer)), `Team.create` und `TeamCreated` speichern;
    2. Wappen und Trainerangabe als Dateien schreiben;
    3. für jeden Spieler eine neue `playerId` vergeben, Profil und Fotos schreiben;
-   4. über die normalen Geschäftsmethoden Kader, Spieltage, Trainings und Bewertungen erzeugen (`addPlayer`, `scheduleMatch`, `recordResult`, `scheduleTraining`, `recordParticipation`, `recordAttendance`, `gradePerformance`, …) und Notizen bzw. Kommentare zuerst als Dateien schreiben. Spieler mit `active = false` werden erst danach inaktiv gesetzt, weil inaktive Spieler nicht bewertet werden können;
+   4. über die normalen Geschäftsmethoden Kader, Termine und Bewertungen erzeugen (`addPlayer`, `scheduleMatch`, `recordResult`, `scheduleTraining`, `recordParticipation`, `recordAttendance`, `gradePerformance`, …) und Notizen bzw. Kommentare zuerst als Dateien schreiben. Spieler mit `active = false` werden erst danach inaktiv gesetzt, weil inaktive Spieler nicht bewertet werden können;
    5. alle Events des Teams in einem Schreibvorgang speichern.
 6. Verstößt ein Datensatz gegen eine Regel aus [5.2](#52-invarianten-und-regeln) (z. B. Note außerhalb des Bereichs), bricht der Import des Teams ab und nennt Termin- und Spieler-ID der alten App.
 7. Am Ende nennt das Skript je Team die neue `teamId` und die Anzahl importierter Spieler, Spieltage, Trainings und Bewertungen.
