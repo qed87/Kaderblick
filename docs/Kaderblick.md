@@ -1652,4 +1652,13 @@ Die Jobs laufen im Backend-Prozess. Zeitpunkte liegen außerhalb der Backup-Zeit
 
 ## 9. Offene Punkte
 
-Keine. Neue offene Punkte, die bei der Umsetzung entstehen, werden hier gesammelt.
+Neue offene Punkte, die bei der Umsetzung entstehen, werden hier gesammelt.
+
+Aus Schritt 1 (Projektgerüst), umgesetzt als Eigenannahme, zu bestätigen:
+
+| Punkt | Annahme |
+|---|---|
+| Format von `KADERBLICK_SESSION_KEY` | 64 Hex-Zeichen (32 Byte), erzeugt z. B. mit `openssl rand -hex 32`. `@fastify/secure-session` nutzt ihn direkt als Schlüssel. |
+| Entwicklungsmodus | Zusätzliche Variable `NODE_ENV` (`development`, `production`, `test`; Standard `production`). Swagger UI und OpenAPI-Dokument gibt es nur bei `development`, unter `/api/v1/docs`. |
+| Unbekannte Endpunkte | `404` mit `type` `NotFound`. Von Fastify selbst erkannte Fehler: ungültiges JSON als `400 ValidationError` mit leerem `errors`, `413 PayloadTooLarge`, `415 UnsupportedMediaType`; unerwartete Fehler als `500 InternalError`. |
+| Trainer-ID | Die Schlüssel unter `Trainer` müssen gültige E-Mail-Adressen sein, sonst bricht der Start ab. |
