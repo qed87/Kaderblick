@@ -9,3 +9,6 @@
 # Dependencies
 node_modules/
 server
+
+# Exportdateien mit personenbezogenen Daten
+Kaderblick_Backup_*.json
