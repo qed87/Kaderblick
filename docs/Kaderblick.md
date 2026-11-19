@@ -22,13 +22,13 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | **Aktives Team** | Das Team, das ein Trainer gerade bearbeitet. Es wird pro Trainer im Backend gespeichert (siehe Trainer) und gilt damit auf allen Endgeräten des Trainers. Die Einstellung bleibt über mehrere Besuche hinweg erhalten. |
 | **Spieler** | Spieler werden Teams über den Kader zugewiesen. Da Events unveränderlich sind und wir DSGVO-konform die Löschung von persönlichen Daten abbilden wollen, sollen Spielerprofile auf dem Dateisystem abgelegt werden. Jeder Spieler erhält beim Anlegen eine zufällige, unveränderliche `playerId` (UUID). Sie wird nicht aus personenbezogenen Daten abgeleitet, damit Events nach dem Löschen des Profils keinen Rückschluss auf die Person zulassen und Korrekturen an Name oder Geburtsdatum die Identität nicht ändern. Für das Profil wird der Pfad `./data/player/{playerId}` vorgesehen. Das Verzeichnis enthält dann eine `profile.json` mit Name, Vorname, Geburtsdatum, starker Fuß (rechts, links, beide) und `photo.jpg` (Originalbild) sowie `photo-cropped.jpg` (zugeschnittenes Spielerbild). |
 | **Kaderspieler** | Ein Spieler der einem Team zugewiesen ist. Er referenziert ein Spielerprofil über die `playerId` und weist diesem zusätzlich eine Rückennummer, Position (TW, AB, MF, ST, AR für Allrounder; optional) sowie aktiv/inaktiv zu. |
-| **Trainer** | Sind Nutzer der App. Jeder Trainer ist in der Trainer-Konfiguration (siehe [8.1](#81-konfiguration)) mit Trainer-Id (E-Mail), Name und eigenem Zugangsschlüssel hinterlegt. E-Mail und Name sind personenbezogene Daten und stehen deshalb nie in Events. Mit dem Zugangsschlüssel authentifiziert sich ein Trainer im Backend. Die Einstellungen eines Trainers werden unter `./data/trainer/{trainerId}/settings.json` abgelegt. Dort werden das aktive Team, die Trainingszeit (Default 90 min, Vorbelegung der Trainingsdauer), die Darstellung (Hell, Dunkel, Wie System) und die Standard-Spielzeit (Default 12 min, Vorbelegung der gespielten Minuten in der Spielbewertung) hinterlegt. |
+| **Trainer** | Sind Nutzer der App. Jeder Trainer ist in der Trainer-Konfiguration (siehe [8.1](#81-konfiguration)) mit Trainer-Id (E-Mail), Name und eigenem Zugangsschlüssel hinterlegt. E-Mail und Name sind personenbezogene Daten und stehen deshalb nie in Events. Mit dem Zugangsschlüssel authentifiziert sich ein Trainer im Backend. Die Einstellungen eines Trainers werden unter `./data/trainer/{trainerId}/settings.json` abgelegt. Dort werden das aktive Team, die Trainingszeit (Default 90 min, Vorbelegung der Trainingsdauer) und die Darstellung (Hell, Dunkel, Wie System) hinterlegt. |
 | **Zugangsschlüssel** | Ein persönliches Geheimnis je Trainer, mit dem er sich am Backend anmeldet. Beim Login prüft das Backend den Schlüssel gegen die Trainer-Konfiguration und setzt bei Erfolg ein Session-Cookie (siehe Sitzung). Der Schlüssel selbst wird danach nicht mehr übertragen. |
 | **Sitzung** | Ein signiertes und verschlüsseltes Session-Cookie (`@fastify/secure-session`) mit `trainerId` und Ablaufzeit. Cookie-Attribute: `HttpOnly`, `Secure`, `SameSite=Strict`, `Max-Age` von 30 Tagen. Die Ablaufzeit wird serverseitig geprüft; nach Ablauf oder Abmelden ist eine erneute Anmeldung nötig. `Secure` setzt HTTPS voraus. |
 | **Termin** | Oberbegriff für Spieltag und Training: ein Ereignis, bei dem die Spieler eines Teams bewertet werden. Jeder Termin hat eine Termin-ID (UUID, innerhalb des Teams eindeutig), ein Datum, eine optionale Notiz und je Spieler höchstens eine Bewertung. Ein Termin ist entweder ein Spieltag oder ein Training. |
 | **Spieltag** | Ein Spieltag ist ein Termin, an dem ein Spiel stattfindet. Er hat ein Datum, optional außerdem Spieltag-Nummer, Gegner, Ort (Heim, Auswärts, Neutral), Wettbewerb (Liga, Pokal, Test, Turnier), Notizen und Ergebnis (Tore Team, Tore Gegner). |
 | **Training** | Ein Training (Trainingseinheit) ist ein Termin mit Datum, Dauer, Thema, Schwerpunkten (z. B. Technik, Taktik, Kondition) und optionaler Notiz. |
-| **Bewertung** | Die Leistung eines Spielers bei einem Termin. Gemeinsam sind allen Bewertungen Leistungsnote, Fairness, Eigenschaften und Kommentar. Es werden zwei Arten unterschieden: Spielbewertung und Trainingsbewertung. Eine Trainingsbewertung erfasst die Leistung eines Spielers bei einer Trainingseinheit (Training). Eine Spielbewertung erfasst die Leistung eines Spielers an einem Spieltag. Eine Bewertung ist eindeutig durch Termin und Spieler bestimmt und hat keine eigene ID. Eine Spielbewertung enthält den Einsatz (Startelf, Eingewechselt, Nicht dabei), die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers), Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Tore, Vorlagen, Paraden und Karten (Gelb, Gelb-Rot, Rot) sowie einen optionalen Kommentar. Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet. Eine Trainingsbewertung enthält Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Anwesenheit (Anwesend, Verspätet, Entschuldigt und Unentschuldigt) und einen optionalen Kommentar. |
+| **Bewertung** | Die Leistung eines Spielers bei einem Termin. Gemeinsam sind allen Bewertungen Leistungsnote, Fairness, Eigenschaften und Kommentar. Es werden zwei Arten unterschieden: Spielbewertung und Trainingsbewertung. Eine Trainingsbewertung erfasst die Leistung eines Spielers bei einer Trainingseinheit (Training). Eine Spielbewertung erfasst die Leistung eines Spielers an einem Spieltag. Eine Bewertung ist eindeutig durch Termin und Spieler bestimmt und hat keine eigene ID. Eine Spielbewertung enthält den Einsatz (Startelf, Eingewechselt, Nicht dabei), Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Tore, Vorlagen, Paraden und Karten (Gelb, Gelb-Rot, Rot) sowie einen optionalen Kommentar. Leistungswerte einer Spielbewertung zählen nur bei Startelf oder Eingewechselt. Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet. Eine Trainingsbewertung enthält Leistungsnote (1–6 in halben Schritten), Fairness (1–6), Eigenschaften mit 0–5 Sternen (Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist), Anwesenheit (Anwesend, Verspätet, Entschuldigt und Unentschuldigt) und einen optionalen Kommentar. |
 | **Kommentar / Notiz** | Freitext zu einer Bewertung (Kommentar) oder zu einem Termin (Notiz). Freitexte gelten als personenbezogen. Daher werden sie nicht in Events gespeichert, sondern auf dem Dateisystem: Kommentare je Termin und Spieler unter `./data/team/{teamId}/appointment/{appointmentId}/comments/{playerId}.txt`, Notizen unter `./data/team/{teamId}/appointment/{appointmentId}/notes.txt`. |
 | **Event** | Eine im Event Store gespeicherte fachliche Tatsache, z. B. `TeamCreated`. Events sind unveränderlich und enthalten keine personenbezogenen Daten. |
 
@@ -63,7 +63,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Anmeldung über Session-Cookie | Der Zugangsschlüssel wird nur beim Login übertragen. Danach authentifiziert ein signiertes, verschlüsseltes Session-Cookie mit Ablaufzeit (`@fastify/secure-session`) die Anfragen. |
 | Direkte Kommunikation mit dem Backend | Jede Änderung geht sofort an das Backend. Ohne Verbindung zum Backend zeigt das Frontend einen Hinweis. |
 | ID-Vergabe | Alle IDs vergibt das Backend: Teams eine fortlaufende Nummer, Spieler und Termine (Spieltage und Trainings) eine zufällige UUID. |
-| Einsatz im Spiel | Startelf, Eingewechselt oder Nicht dabei, dazu die gespielten Minuten (vorbelegt mit der Standard-Spielzeit des Trainers). Minuten und Leistungswerte zählen nur bei Startelf oder Eingewechselt. |
+| Einsatz im Spiel | Startelf, Eingewechselt oder Nicht dabei. Leistungswerte zählen nur bei Startelf oder Eingewechselt. Gespielte Minuten werden nicht erfasst; sie wurden in der Praxis kaum gepflegt und von keiner Auswertung außer der Minutensumme genutzt. |
 | Teilnahme am Training | Leistungswerte einer Trainingsbewertung zählen nur bei Anwesend oder Verspätet, nicht bei Entschuldigt oder Unentschuldigt. |
 | Fachlich feine Events | Je fachlicher Änderung ein Event (z. B. `PerformanceGraded`, `GoalsRecorded`, `TeamRenamed`), kein Event je Formular. Werte, die sich nicht geändert haben, erzeugen keine Events; so bleibt die Historie aussagekräftig. |
 | Einsatz zuerst | Leistungswerte können erst erfasst werden, wenn Einsatz (Startelf, Eingewechselt) bzw. Anwesenheit (Anwesend, Verspätet) erfasst ist. Es gibt keine automatische Erfassung des Einsatzes. |
@@ -321,7 +321,6 @@ Termindaten wie in der Liste, dazu die Notiz und der Button **Bearbeiten** (Term
 | Feld | Eingabe |
 |---|---|
 | Einsatz | Startelf, Eingewechselt, Nicht dabei |
-| Minuten | ganze Zahl ≥ 0; wird mit der Standard-Spielzeit des Trainers vorbelegt und gespeichert, sobald Startelf oder Eingewechselt gewählt ist und noch keine Minuten erfasst sind |
 | Leistungsnote | 1–6 in halben Schritten, leer möglich |
 | Fairness | 1–6, leer möglich |
 | Eigenschaften | je 0–5 Sterne: Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist |
@@ -341,7 +340,7 @@ Termindaten wie in der Liste, dazu die Notiz und der Button **Bearbeiten** (Term
 
 Verhalten in beiden Dialogen:
 
-- Solange kein Einsatz (Startelf, Eingewechselt) bzw. keine Anwesenheit (Anwesend, Verspätet) gewählt ist, sind Minuten und Leistungswerte gesperrt. Der Kommentar ist immer möglich.
+- Solange kein Einsatz (Startelf, Eingewechselt) bzw. keine Anwesenheit (Anwesend, Verspätet) gewählt ist, sind die Leistungswerte gesperrt. Der Kommentar ist immer möglich.
 - Wird Nicht dabei, Entschuldigt oder Unentschuldigt gewählt und sind bereits Leistungswerte erfasst, fragt der Dialog vorher nach, weil diese Werte dann verfallen.
 - Jeder Wert wird sofort gespeichert. **Schließen** beendet den Dialog.
 - **Vor/Zurück** wechselt zum nächsten bzw. vorherigen Spieler der Liste. Ein Textfeld, das gerade bearbeitet wird, wird vorher gespeichert; schlägt das fehl, bleibt der Dialog beim aktuellen Spieler.
@@ -433,7 +432,7 @@ Eine Zeile je Spieler mit Rückennummer und Name. Die Tabelle hat zwei Spaltengr
 
 | Gruppe | Spalten |
 |---|---|
-| Spiel | Einsätze, davon Startelf, Minuten, Tore, Vorlagen, Paraden, Gelb, Gelb-Rot, Rot, Ø-Note, Ø-Fairness, Ø-Sterne je Eigenschaft |
+| Spiel | Einsätze, davon Startelf, Tore, Vorlagen, Paraden, Gelb, Gelb-Rot, Rot, Ø-Note, Ø-Fairness, Ø-Sterne je Eigenschaft |
 | Training | Beteiligung, Ø-Note, Ø-Fairness, Ø-Sterne je Eigenschaft |
 
 Jede Spalte ist sortierbar, Standard ist Name, dann Vorname (alphabetisch). Ein Klick auf eine Zeile öffnet das Spielerdetail.
@@ -445,7 +444,6 @@ Jede Spalte ist sortierbar, Standard ist Name, dann Vorname (alphabetisch). Ein 
 | Torschützen | Tore absteigend |
 | Vorlagengeber | Vorlagen absteigend |
 | Scorer | Tore plus Vorlagen absteigend |
-| Einsatzminuten | Minuten absteigend |
 | Ø-Spielnote | aufsteigend (beste zuerst) |
 | Ø-Trainingsnote | aufsteigend |
 | Ø-Fairness (Spiel) | aufsteigend |
@@ -464,7 +462,7 @@ Wird aus Spielertabelle, Ranglisten oder „Spieler im Training“ geöffnet und
 - **Kennzahlen:** die Werte der Spielertabelle für Spiel und Training.
 - **Notenverlauf:** Liniendiagramm mit je einer Linie für Spielnote und Trainingsnote, ein Punkt je Termin.
 - **Eigenschaften:** Netzdiagramm mit den Ø-Sternen der fünf Eigenschaften, je eine Fläche für Spiel und Training.
-- **Anwesenheit:** Aufteilung der Trainings nach Anwesend, Verspätet, Entschuldigt und Unentschuldigt.
+- **Anwesenheit:** gestapelter Balken über die volle Breite mit je einem Abschnitt für Anwesend, Verspätet, Entschuldigt und Unentschuldigt (Anteil an allen Trainings mit erfasster Anwesenheit). Darunter je Kategorie Anzahl und Prozent. Kategorien ohne Trainings haben keinen Abschnitt, stehen aber mit 0 in der Aufstellung.
 - **Termine:** Liste aller Termine mit erfasster Bewertung (Datum, Gegner bzw. Thema, Einsatz bzw. Anwesenheit, Note). Ein Klick öffnet die Bewertungsansicht des Termins.
 
 #### 4.4.7 Ablauf im Backend
@@ -613,21 +611,37 @@ Spieltage und Trainings stehen in derselben Datei; die Spalte **Art** unterschei
 |---|---|---|
 | Art | `Spieltag` | `Training` |
 | Datum | ✓ | ✓ |
-| Spieltag-Nr., Gegner, Ort, Wettbewerb, Ergebnis | ✓ | – |
-| Dauer, Thema, Schwerpunkte | – | ✓ |
-| Rückennummer, Position | aktueller Stand im Kader | aktueller Stand im Kader |
-| Vorname, Name | ✓ | ✓ |
-| Einsatz | Startelf, Eingewechselt, Nicht dabei | – |
-| Anwesenheit | – | Anwesend, Verspätet, Entschuldigt, Unentschuldigt |
-| Minuten | ✓ | – |
-| Leistungsnote, Fairness | ✓ | ✓ |
-| Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist | ✓ | ✓ |
-| Tore, Vorlagen, Paraden | ✓ | – |
-| Gelb, Gelb-Rot, Rot | je Kartenart eine Spalte mit der Anzahl gezeigter Karten | – |
+| Spieltag-Nr. | ✓ | – |
+| Gegner | ✓ | – |
+| Ort | ✓ | – |
+| Wettbewerb | ✓ | – |
+| Tore Team | ✓ | – |
+| Tore Gegner | ✓ | – |
+| Dauer | – | ✓ |
+| Thema | – | ✓ |
+| Schwerpunkte | – | ✓ |
+| Rückennummer | aktueller Stand im Kader | aktueller Stand im Kader |
+| Position | aktueller Stand im Kader | aktueller Stand im Kader |
+| Vorname | ✓ | ✓ |
+| Name | ✓ | ✓ |
+| Teilnahme | Startelf, Eingewechselt, Nicht dabei | Anwesend, Verspätet, Entschuldigt, Unentschuldigt |
+| Leistungsnote | ✓ | ✓ |
+| Fairness | ✓ | ✓ |
+| Einsatz & Laufbereitschaft | ✓ | ✓ |
+| Technik | ✓ | ✓ |
+| Spielverständnis | ✓ | ✓ |
+| Zweikampf | ✓ | ✓ |
+| Teamgeist | ✓ | ✓ |
+| Tore | ✓ | – |
+| Vorlagen | ✓ | – |
+| Paraden | ✓ | – |
+| Gelb | Anzahl gezeigter Karten | – |
+| Gelb-Rot | Anzahl gezeigter Karten | – |
+| Rot | Anzahl gezeigter Karten | – |
 | Kommentar | ✓ | ✓ |
 
-- Zählt die Leistung nicht (Nicht dabei, Entschuldigt, Unentschuldigt), bleiben Minuten und alle Leistungswerte leer. Nicht erfasste Einzelwerte bleiben ebenfalls leer.
-- Das Ergebnis steht als `3:1` aus Sicht des Teams, Schwerpunkte durch Komma getrennt.
+- Zählt die Leistung nicht (Nicht dabei, Entschuldigt, Unentschuldigt), bleiben alle Leistungswerte leer. Nicht erfasste Einzelwerte bleiben ebenfalls leer.
+- Tore Team und Tore Gegner stehen als Zahlen, damit Excel damit rechnen kann; ohne erfasstes Ergebnis bleiben beide leer. Schwerpunkte stehen als Liste, durch Komma getrennt (z. B. `Technik, Taktik`).
 - Gelöschte Spieler erscheinen als Vorname leer, Name „Gelöschter Spieler“, ohne Kommentar.
 
 **Format**
@@ -700,12 +714,11 @@ Zeigt Name und E-Mail des angemeldeten Trainers aus der Trainer-Konfiguration, n
 | Feld | Pflicht | Eingabe und Prüfung | Standard | Wirkung |
 |---|---|---|---|---|
 | Trainingszeit | ja | ganze Zahl 1–600 Minuten | 90 | Vorbelegung der Dauer beim Anlegen eines Trainings ([4.3.2](#432-trainings)) |
-| Standard-Spielzeit | ja | ganze Zahl 1–120 Minuten | 12 | Vorbelegung der gespielten Minuten in der Spielbewertung ([4.3.3](#433-bewertungsansicht)) |
 | Darstellung | ja | Hell, Dunkel, Wie System | Wie System | Farbschema des Frontends |
 
 - Jeder Wert wird sofort gespeichert (siehe „Speichern je Feld“). Der Service schreibt ihn in `trainer/{trainerId}/settings.json`; die übrigen Werte und das aktive Team in derselben Datei bleiben unverändert. Antwort: `200`.
 - Eine geänderte Darstellung wird sofort angewendet.
-- Die Einstellungen gelten für den Trainer auf allen seinen Geräten. Trainingszeit und Standard-Spielzeit wirken nur auf neue Eingaben; bereits gespeicherte Trainings und Bewertungen ändern sich nicht.
+- Die Einstellungen gelten für den Trainer auf allen seinen Geräten. Die Trainingszeit wirkt nur auf neue Trainings; bereits gespeicherte Trainings ändern sich nicht.
 - Vor der Anmeldung kennt das Frontend den Trainer nicht; die Anmeldeseite nutzt deshalb immer das Farbschema des Systems.
 - Die Einstellungen gehören nur einem Trainer und erzeugen keine Events. Es gibt keine Konfliktprüfung: Speichert derselbe Trainer auf zwei Geräten, gilt der zuletzt gespeicherte Stand.
 - Fehlt `settings.json` oder ein Wert darin, gelten die Standardwerte.
@@ -746,7 +759,7 @@ Appointment (abstrakt)          id, date, hasNotes, deleted, ratings: Map<player
 └── Training                    duration, topic, focus
 
 Rating (abstrakt)               grade, fairness, attributes, hasComment, counts()
-├── MatchRating                 participation, minutes, goals, assists, saves, cards
+├── MatchRating                 participation, goals, assists, saves, cards
 └── TrainingRating              attendance
 ```
 
@@ -790,12 +803,12 @@ Alle Regeln werden in der Klasse `Team` durchgesetzt. Die Zod-Schemas der Routen
 
 1. **Lebenszyklus:** Ein Team wird genau einmal über `Team.create(...)` angelegt. Nach `TeamDeleted` lehnt jede Geschäftsmethode mit `TeamDeleted` ab.
 2. **Teamdaten:** Der Name ist nach Entfernen von Leerzeichen am Rand mindestens 1 Zeichen lang. Die Saison hat das Format `JJJJ_JJ`, wobei `JJ` die letzten beiden Ziffern von `JJJJ + 1` sind (z. B. `2026_27`, `2099_00`).
-3. **Kader:** Ein Spieler ist höchstens einmal im Kader eines Teams. Alle kader- und bewertungsbezogenen Methoden setzen voraus, dass der Spieler im Kader ist. Doppelte Rückennummern sind erlaubt; das Frontend zeigt nur einen Hinweis.
+3. **Kader:** Ein Spieler ist höchstens einmal im Kader eines Teams (sonst `PlayerAlreadyInSquad`); in mehreren Teams darf er stehen. Nur Kaderspieler können bearbeitet und bewertet werden: Alle Methoden mit einer `playerId` außer `addPlayer` (Rückennummer, Position, Deaktivieren, Entfernen, alle Bewertungswerte) lehnen sonst mit `PlayerNotInSquad` ab. Doppelte Rückennummern sind erlaubt; das Frontend zeigt nur einen Hinweis.
 4. **Inaktive Spieler:** Für inaktive Spieler können keine Bewertungswerte erfasst oder geändert werden. Bereits erfasste Werte bleiben erhalten.
 5. **Termine:** Bewertungen gibt es nur für bestehende, nicht gelöschte Spieltage bzw. Trainings. Eine Termin-ID wird innerhalb eines Teams nur einmal vergeben.
-6. **Einsatz zuerst:** Leistungswerte (Leistungsnote, Fairness, Eigenschaften, Tore, Vorlagen, Paraden, Karten, Minuten) können nur erfasst werden, wenn der Spieler als Startelf oder Eingewechselt (Spieltag) bzw. Anwesend oder Verspätet (Training) erfasst ist. Sonst lehnt die Methode mit `NotParticipating` ab.
+6. **Einsatz zuerst:** Leistungswerte (Leistungsnote, Fairness, Eigenschaften, Tore, Vorlagen, Paraden, Karten) können nur erfasst werden, wenn der Spieler als Startelf oder Eingewechselt (Spieltag) bzw. Anwesend oder Verspätet (Training) erfasst ist. Sonst lehnt die Methode mit `NotParticipating` ab.
 7. **Werte verfallen:** Wird ein Spieler auf Nicht dabei bzw. Entschuldigt oder Unentschuldigt gesetzt, verfallen seine Leistungswerte für diesen Termin. Wird er danach wieder auf Startelf, Eingewechselt, Anwesend oder Verspätet gesetzt, beginnt die Erfassung leer. Der Wechsel zwischen Startelf und Eingewechselt bzw. zwischen Anwesend und Verspätet lässt die Werte unverändert. Kommentare sind keine Leistungswerte und bleiben erhalten.
-8. **Wertebereiche:** Leistungsnote 1–6 in halben Schritten, Fairness 1–6 ganzzahlig, Eigenschaften 0–5 Sterne ganzzahlig aus der festen Liste `effort` (Einsatz & Laufbereitschaft), `technique` (Technik), `gameIntelligence` (Spielverständnis), `duels` (Zweikampf), `teamSpirit` (Teamgeist). Tore, Vorlagen, Paraden, gespielte Minuten, Ergebnis und Trainingsdauer sind ganze Zahlen ≥ 0, die Spieltag-Nummer ist eine ganze Zahl ≥ 1.
+8. **Wertebereiche:** Leistungsnote 1–6 in halben Schritten, Fairness 1–6 ganzzahlig, Eigenschaften 0–5 Sterne ganzzahlig aus der festen Liste `effort` (Einsatz & Laufbereitschaft), `technique` (Technik), `gameIntelligence` (Spielverständnis), `duels` (Zweikampf), `teamSpirit` (Teamgeist). Tore, Vorlagen, Paraden, Ergebnis und Trainingsdauer sind ganze Zahlen ≥ 0, die Spieltag-Nummer ist eine ganze Zahl ≥ 1.
 9. **Karten:** Jede Kartenart (Gelb, Gelb-Rot, Rot) kann je Spieler und Spieltag höchstens einmal gezeigt werden.
 10. **Verfallen beim Entfernen:** Wird ein Spieler aus dem Kader entfernt, verfallen alle seine Bewertungen in diesem Team. Wird ein Termin gelöscht, verfallen alle zugehörigen Bewertungen. Wird der Spieler später erneut hinzugefügt, beginnt er ohne Bewertungen.
 11. **Zähler sind absolut:** Tore, Vorlagen und Paraden werden als absoluter Wert gesetzt („Tore = 2“), nicht als „+1“. Gleichzeitige Änderungen bleiben dadurch eindeutig.
@@ -907,15 +920,12 @@ Nur für Spieltage. Alle Methoden erhalten `matchId` und `playerId`; die Events 
 | Geschäftsmethode | Event | Regeln |
 |---|---|---|
 | `recordParticipation(matchId, playerId, participation)` | `ParticipationRecorded { participation }` (`starting`, `substitute`, `absent`) | 1, 3, 4, 5, 7 |
-| `recordMinutesPlayed(matchId, playerId, minutes)` | `MinutesPlayedRecorded { minutes }` | 1, 3–6, 8 |
 | `recordGoals(matchId, playerId, count)` | `GoalsRecorded { count }` | 1, 3–6, 8, 11 |
 | `recordAssists(matchId, playerId, count)` | `AssistsRecorded { count }` | 1, 3–6, 8, 11 |
 | `recordSaves(matchId, playerId, count)` | `SavesRecorded { count }` | 1, 3–6, 8, 11 |
 | `showCard(matchId, playerId, card)` | `CardShown { card }` (`yellow`, `yellowRed`, `red`) | 1, 3–6, 9 |
 | `withdrawCard(matchId, playerId, card)` | `CardWithdrawn { card }` | 1, 3–6 |
 | `markAllStarting(matchId)` | `ParticipationRecorded { playerId, participation: starting }` je aktivem Kaderspieler ohne erfassten Einsatz | 1, 5 |
-
-Die gespielten Minuten werden im Frontend mit der Standard-Spielzeit des Trainers vorbelegt und wie jeder andere Wert über `recordMinutesPlayed` gespeichert.
 
 #### 5.3.8 Trainingsbewertung
 
@@ -978,7 +988,7 @@ data/
       notes.txt                     Notiz zum Termin (Spieltag oder Training)
       comments/{playerId}.txt       Kommentar zur Bewertung
   trainer/{trainerId}/
-    settings.json                   aktives Team, Trainingszeit, Standard-Spielzeit, Darstellung
+    settings.json                   aktives Team, Trainingszeit, Darstellung
 ```
 
 Das Wappen ist nicht personenbezogen, wird aber ebenfalls auf dem Dateisystem abgelegt, damit die Events klein bleiben. Events vermerken nur, dass ein Wappen hochgeladen oder entfernt wurde.
@@ -1114,7 +1124,6 @@ Je Team, Termin und Spieler die Bewertung, bereits um verfallene Werte bereinigt
 | Feld | Bedeutung |
 |---|---|
 | Spieltag: `participation` | Startelf, Eingewechselt, Nicht dabei oder nicht erfasst |
-| Spieltag: `minutes` | gespielte Minuten |
 | Training: `attendance` | Anwesend, Verspätet, Entschuldigt, Unentschuldigt oder nicht erfasst |
 | `counts` | `true`, wenn die Leistung zählt (Startelf, Eingewechselt, Anwesend, Verspätet) |
 | `grade`, `fairness`, `attributes` | Leistungsnote, Fairness, Eigenschaften (Sterne) |
@@ -1173,6 +1182,8 @@ Bilder werden nicht per `PATCH`, sondern über eigene Endpunkte hochgeladen (`PU
 
 - Lesende Endpunkte eines Teams (alles unter `/teams/{teamId}`) liefern die Revision des Teams als `ETag`. Mit `If-None-Match` antwortet das Backend bei unverändertem Stand mit `304 Not Modified` (siehe [7.2](#72-änderungen-anderer-trainer-erkennen)).
 - Die Team-Liste (`GET /teams`) und die Spielersuche liefern als `ETag` die zuletzt verarbeitete Position aller Team-Events.
+- Der `ETag` wird als HTTP-Header in Anführungszeichen übertragen, z. B. `ETag: "42"`. Das Backend setzt ihn aus der Revision bzw. Position der Projektion, nicht aus einem Hash des Bodys.
+- Alle Antworten unter `/api/v1` tragen `Cache-Control: no-store`. Der Browser speichert dadurch keine Antworten (keine personenbezogenen Daten im Browser-Cache, z. B. auf gemeinsam genutzten Geräten) und schickt kein eigenes `If-None-Match`. Das Frontend merkt sich je Ansicht den letzten `ETag` und die zugehörigen Daten im Speicher und schickt `If-None-Match` selbst; einen `304` sieht es so direkt.
 - Schreibende Endpunkte warten, bis die Read-Models die geschriebene Revision verarbeitet haben (höchstens 2 Sekunden), und liefern die neue Revision als `ETag`. Läuft die Wartezeit ab, enthält die Antwort zusätzlich den Header `X-Projection-Pending: true` (siehe [7.1](#71-eigene-änderungen-sofort-sehen)).
 
 #### 6.1.5 Fehlerformat
@@ -1232,8 +1243,8 @@ Alle Pfade sind relativ zu `/api/v1`. Die genauen Schemas von Anfragen und Antwo
 | `POST` | `/session` | Anmelden mit `{ accessKey }` ([4.1.1](#411-anmelden)) | `204` mit Session-Cookie, `401`, `429` |
 | `DELETE` | `/session` | Abmelden | `204` |
 | `GET` | `/me` | Name und E-Mail des angemeldeten Trainers | `200` |
-| `GET` | `/me/settings` | Einstellungen; bestimmt dabei das aktive Team ([4.1.2](#412-aktives-team-nach-der-anmeldung)) | `200 { activeTeamId, trainingDuration, defaultMatchMinutes, theme }` |
-| `PATCH` | `/me/settings` | ein Feld: `activeTeamId`, `trainingDuration`, `defaultMatchMinutes`, `theme` (ohne `previous`) | `200`; `404` bei unbekanntem bzw. gelöschtem Team |
+| `GET` | `/me/settings` | Einstellungen; bestimmt dabei das aktive Team ([4.1.2](#412-aktives-team-nach-der-anmeldung)) | `200 { activeTeamId, trainingDuration, theme }` |
+| `PATCH` | `/me/settings` | ein Feld: `activeTeamId`, `trainingDuration`, `theme` (ohne `previous`) | `200`; `404` bei unbekanntem bzw. gelöschtem Team |
 
 `activeTeamId` ist `null`, wenn es noch kein Team gibt; dann zeigt das Frontend den Dialog „Team anlegen“.
 
@@ -1279,7 +1290,7 @@ Profiländerungen (`PATCH /players/…` und Foto) schreiben zusätzlich `PlayerP
 | `GET` | `/teams/{teamId}/matches/{matchId}` | Bewertungsansicht: Spieltag, Notiz und Bewertungen aller Spieler mit Namen und Kommentaren ([4.3.3](#433-bewertungsansicht)) | `200` |
 | `PATCH` | `/teams/{teamId}/matches/{matchId}` | ein Feld: `date`, `matchday`, `opponent`, `venue`, `competition`, `result` (`{ goalsFor, goalsAgainst }`), `notes` | `200` |
 | `DELETE` | `/teams/{teamId}/matches/{matchId}` | Spieltag löschen | `204` |
-| `PATCH` | `/teams/{teamId}/matches/{matchId}/ratings/{playerId}` | ein Feld der Spielbewertung: `participation`, `minutes`, `grade`, `fairness`, `attributes.effort`, `attributes.technique`, `attributes.gameIntelligence`, `attributes.duels`, `attributes.teamSpirit`, `goals`, `assists`, `saves`, `cards.yellow`, `cards.yellowRed`, `cards.red`, `comment` | `200` |
+| `PATCH` | `/teams/{teamId}/matches/{matchId}/ratings/{playerId}` | ein Feld der Spielbewertung: `participation`, `grade`, `fairness`, `attributes.effort`, `attributes.technique`, `attributes.gameIntelligence`, `attributes.duels`, `attributes.teamSpirit`, `goals`, `assists`, `saves`, `cards.yellow`, `cards.yellowRed`, `cards.red`, `comment` | `200` |
 | `DELETE` | `/teams/{teamId}/matches/{matchId}/ratings/{playerId}` | Bewertung zurücksetzen, Kommentar bleibt | `204` |
 | `POST` | `/teams/{teamId}/matches/{matchId}/mark-all-starting` | „Alle Startelf“ | `200 { marked }` |
 
@@ -1466,7 +1477,7 @@ Die IDs der alten App sind kurze Zeichenketten. Sie werden nur während des Impo
 | `league` | Spielklasse |
 | `coach` | Trainerangabe (`coaches.txt`), leer = keine |
 | `images[<teamId>]` | Wappen; dasselbe Bild wird als Original und Zuschnitt gespeichert |
-| `matchLength`, `photo` | entfallen (die Standard-Spielzeit ist eine Einstellung des Trainers) |
+| `matchLength`, `photo` | entfallen |
 
 **Spieler**
 
@@ -1508,7 +1519,7 @@ Die IDs der alten App sind kurze Zeichenketten. Sie werden nur während des Impo
 |---|---|
 | `status` bei Spieltagen: `start`, `sub`, `out` | Einsatz `starting`, `substitute`, `absent` |
 | `status` bei Trainings: `present`, `late`, `excused`, `absent` | Anwesenheit `present`, `late`, `excused`, `unexcused` |
-| `min` (Text, evtl. leer) | gespielte Minuten, leer = nicht erfasst |
+| `min` | entfällt; gespielte Minuten werden nicht mehr erfasst |
 | `grade`, `fair` (`null` = nicht erfasst) | Leistungsnote, Fairness |
 | `attrs`: `eff`, `tech`, `iq`, `duel`, `team` | Eigenschaften `effort`, `technique`, `gameIntelligence`, `duels`, `teamSpirit`; fehlende Schlüssel = nicht erfasst |
 | `goals`, `assists`, `saves` | Tore, Vorlagen, Paraden; nur Spieltage, `0` wird nicht als Event übernommen |
