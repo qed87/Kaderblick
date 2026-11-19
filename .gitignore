@@ -12,3 +12,6 @@ server
 
 # Exportdateien mit personenbezogenen Daten
 Kaderblick_Backup_*.json
+
+# Build
+backend/dist/
