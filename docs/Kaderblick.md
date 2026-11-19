@@ -1,6 +1,6 @@
 # Kaderblick – Spezifikation
 
-> Status: Entwurf. Abschnitte mit _TODO_ werden gemeinsam ausgearbeitet.
+> Status: Vollständig ausgearbeitet (Stand 2026-11-19). Grundlage für die Umsetzung; Änderungen werden hier nachgezogen.
 
 ## 1. Überblick
 
@@ -22,7 +22,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | **Aktives Team** | Das Team, das ein Trainer gerade bearbeitet. Es wird pro Trainer im Backend gespeichert (siehe Trainer) und gilt damit auf allen Endgeräten des Trainers. Die Einstellung bleibt über mehrere Besuche hinweg erhalten. |
 | **Spieler** | Spieler werden Teams über den Kader zugewiesen. Da Events unveränderlich sind und wir DSGVO-konform die Löschung von persönlichen Daten abbilden wollen, sollen Spielerprofile auf dem Dateisystem abgelegt werden. Jeder Spieler erhält beim Anlegen eine zufällige, unveränderliche `playerId` (UUID). Sie wird nicht aus personenbezogenen Daten abgeleitet, damit Events nach dem Löschen des Profils keinen Rückschluss auf die Person zulassen und Korrekturen an Name oder Geburtsdatum die Identität nicht ändern. Für das Profil wird der Pfad `./data/player/{playerId}` vorgesehen. Das Verzeichnis enthält dann eine `profile.json` mit Name, Vorname, Geburtsdatum, starker Fuß (rechts, links, beide) und `photo.jpg` (Originalbild) sowie `photo-cropped.jpg` (zugeschnittenes Spielerbild). |
 | **Kaderspieler** | Ein Spieler der einem Team zugewiesen ist. Er referenziert ein Spielerprofil über die `playerId` und weist diesem zusätzlich eine Rückennummer, Position (TW, AB, MF, ST, AR für Allrounder; optional) sowie aktiv/inaktiv zu. |
-| **Trainer** | Sind Nutzer der App. Jeder Trainer ist in der Trainer-Konfiguration (siehe [8.1](#81-konfiguration)) mit Trainer-Id (E-Mail), Name und eigenem Zugangsschlüssel hinterlegt. E-Mail und Name sind personenbezogene Daten und stehen deshalb nie in Events. Mit dem Zugangsschlüssel authentifiziert sich ein Trainer im Backend. Die Einstellungen eines Trainers werden unter `./data/trainer/{trainerId}/settings.json` abgelegt. Dort werden das aktive Team, die Trainingszeit (Default 90 min) und die Standard-Spielzeit (Default 12 min, Vorbelegung der gespielten Minuten in der Spielbewertung) hinterlegt. |
+| **Trainer** | Sind Nutzer der App. Jeder Trainer ist in der Trainer-Konfiguration (siehe [8.1](#81-konfiguration)) mit Trainer-Id (E-Mail), Name und eigenem Zugangsschlüssel hinterlegt. E-Mail und Name sind personenbezogene Daten und stehen deshalb nie in Events. Mit dem Zugangsschlüssel authentifiziert sich ein Trainer im Backend. Die Einstellungen eines Trainers werden unter `./data/trainer/{trainerId}/settings.json` abgelegt. Dort werden das aktive Team, die Trainingszeit (Default 90 min, Vorbelegung der Trainingsdauer), die Darstellung (Hell, Dunkel, Wie System) und die Standard-Spielzeit (Default 12 min, Vorbelegung der gespielten Minuten in der Spielbewertung) hinterlegt. |
 | **Zugangsschlüssel** | Ein persönliches Geheimnis je Trainer, mit dem er sich am Backend anmeldet. Beim Login prüft das Backend den Schlüssel gegen die Trainer-Konfiguration und setzt bei Erfolg ein Session-Cookie (siehe Sitzung). Der Schlüssel selbst wird danach nicht mehr übertragen. |
 | **Sitzung** | Ein signiertes und verschlüsseltes Session-Cookie (`@fastify/secure-session`) mit `trainerId` und Ablaufzeit. Cookie-Attribute: `HttpOnly`, `Secure`, `SameSite=Strict`, `Max-Age` von 30 Tagen. Die Ablaufzeit wird serverseitig geprüft; nach Ablauf oder Abmelden ist eine erneute Anmeldung nötig. `Secure` setzt HTTPS voraus. |
 | **Spieltag** | Ein Spieltag ist ein bewertbares Ereignis in der Anwendung. Es legt ein Datum fest, optional außerdem Spieltag-Nummer, Gegner, Ort (Heim, Auswärts, Neutral), Wettbewerb (Liga, Pokal, Test, Turnier), Notizen und Ergebnis (Tore Team, Tore Gegner). |
@@ -44,7 +44,7 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Spieler löschen (DSGVO) | Wird ein Spieler gelöscht, werden nur seine Dateien auf dem Dateisystem entfernt: Profil, Fotos und die Kommentare zu seinen Bewertungen in allen Teams. Die Events bleiben unverändert, der Spieler bleibt einem Team weiterhin zugewiesen und verweist nur noch auf eine `playerId` ohne Personenbezug. |
 | Fehlende personenbezogene Daten beim Lesen | Read-Models und Antworten ersetzen fehlende Dateien durch sinnvolle Standardwerte, z. B. Name „Gelöschter Spieler“, kein Foto, kein Kommentar. Fehlende Dateien sind kein Fehler. |
 | Team löschen | Beim Löschen eines Teams wird ein `TeamDeleted`-Event geschrieben, der Stream bleibt bestehen. Die Dateien unter `./data/team/{teamId}/` (Wappen, Notizen, Kommentare) werden sofort gelöscht. Auf ein gelöschtes Team werden keine weiteren Geschäftsmethoden angewendet, und es erscheint in keiner Übersicht mehr. |
-| Verwaiste Streams | Der Stream eines gelöschten Teams gilt 30 Tage nach dem `TeamDeleted`-Event als verwaist. Ein wiederkehrender Job räumt verwaiste Streams auf; er läuft alle 2 Monate. Ein gelöschtes Team wird dadurch frühestens 30 Tage und spätestens etwa 90 Tage nach dem Löschen aus dem Event Store entfernt. |
+| Verwaiste Streams | Der Stream eines gelöschten Teams gilt 30 Tage nach dem `TeamDeleted`-Event als verwaist. Ein wiederkehrender Job räumt verwaiste Streams auf; er läuft alle 2 Monate. Ein gelöschtes Team wird dadurch frühestens 30 Tage und spätestens etwa 90 Tage nach dem Löschen aus dem Event Store entfernt. Der Job löscht die Streams endgültig (Tombstone), sodass ihre Nummern nie wieder vergeben werden; den Speicherplatz gibt ein anschließender Scavenge frei. |
 | Aktives Team nach dem Löschen | Ist das gelöschte Team bei einem Trainer als aktives Team hinterlegt, wird sein aktives Team auf das nächste verfügbare Team gewechselt: das Team mit der neuesten Saison, bei Gleichstand alphabetisch nach Name. Die Umstellung erfolgt beim nächsten Lesen der Einstellungen: Das Backend prüft, ob das hinterlegte Team noch existiert, wählt sonst das nächste Team und speichert es. Beim Löschen eines Teams werden keine Einstellungsdateien angefasst. |
 | Immer ein aktives Team | In der Anwendung muss immer ein Team aktiv sein. Das letzte noch vorhandene Team kann deshalb nicht gelöscht werden; der Versuch wird mit `422` abgelehnt. Geprüft wird über die Projektion der Team-Übersicht. Das ist wie bei doppelten Namen eine bewusste Ausnahme von der Regel „Read-Models nie für Invarianten“, weil die Regel mehrere Teams betrifft. In seltenen Fällen (zwei Trainer löschen gleichzeitig die letzten beiden Teams) können dadurch kurzzeitig keine Teams vorhanden sein; dann erzwingt das Frontend den Dialog „Team anlegen“. |
 | Sichtbarkeit von Teams | Alle Trainer sehen und bearbeiten alle Teams. Es gibt keine Zuordnung von Trainern zu Teams. |
@@ -77,18 +77,16 @@ Die App gliedert sich in fünf Reiter: `Kader`, `Termine`, `Auswertungen`, `Team
 | Neues Team wird aktiv | Wer ein Team anlegt, hat es danach als aktives Team. Andere Trainer behalten ihr aktives Team. |
 | Wappen im Frontend zuschneiden | Das Frontend schneidet das Wappen zu und schickt Original und Zuschnitt als JPEG (max. 5 MB je Bild). Das Backend prüft nur Typ und Größe und braucht keine Bildbibliothek. |
 | Aktives Team pro Trainer | Das aktive Team wird pro Trainer im Backend gespeichert und gilt auf allen Endgeräten des Trainers. |
-| Aktualität im Frontend | Schreibende Endpunkte antworten erst, wenn die Read-Models die neue Revision verarbeitet haben (höchstens 2 Sekunden). Änderungen anderer Trainer erkennt das Frontend per Polling (Ansichtswechsel, Fenster im Vordergrund, alle 30 Sekunden) mit der Team-Revision als `ETag`. Hat ein anderer Trainer die Daten eines Formulars inzwischen geändert, wird das Speichern mit `409 EditConflict` abgelehnt. Kein Push (Details siehe [7](#7-gemeinsamer-datenstand)). |
+| Aktualität im Frontend | Schreibende Endpunkte antworten erst, wenn die Read-Models die neue Revision verarbeitet haben (höchstens 2 Sekunden). Änderungen anderer Trainer erkennt das Frontend per Polling (Ansichtswechsel, Fenster im Vordergrund, alle 30 Sekunden) mit der Team-Revision als `ETag`. Hat ein anderer Trainer ein Feld inzwischen geändert, wird das Speichern dieses Feldes mit `409 EditConflict` abgelehnt. Kein Push (Details siehe [7](#7-gemeinsamer-datenstand)). |
 | Geburtsdatum Pflicht | Ein neuer Spieler braucht Vorname, Name und Geburtsdatum. So lassen sich gleichnamige Spieler unterscheiden. |
 | Spieler endgültig löschen | Nur durch den Betreiber auf Anfrage (DSGVO), nicht in der App. Trainer entfernen Spieler aus dem Kader; Spieler ohne Team löscht der tägliche Aufräumjob. |
 | Kader übernehmen | Spieler eines anderen Teams lassen sich gesammelt übernehmen, mit Rückennummer und Position, ohne Bewertungen. Das Profil wird über die `playerId` geteilt, nicht kopiert. |
 | Termine ohne Uhrzeit | Spieltage und Trainings haben nur ein Datum. |
-| Bewerten mit Speichern-Button | Bewertungen werden im Dialog bzw. in der Spielerliste gesammelt und mit **Speichern** übertragen. Der Service erzeugt daraus die feinen Events in einem Schreibvorgang. |
-| Vollständige Formulare, Abgleich im Backend | Das Frontend schickt beim Speichern immer alle Werte eines Formulars, nicht nur die geänderten. Der Service vergleicht jeden Wert mit dem aktuellen Zustand und ruft nur für abweichende Werte die Geschäftsmethode auf; gleiche Werte erzeugen kein Event (Regel 12 in [5.2](#52-invarianten-und-regeln)). Ausnahme sind Bilder (Wappen, Foto): Sie werden nur geschickt, wenn ein neues Bild gewählt wurde; das Entfernen wird ausdrücklich angegeben. Damit dabei keine Änderung eines anderen Trainers überschrieben wird, gilt die Konfliktprüfung (siehe „Bearbeitungskonflikt“). |
-| Bearbeitungskonflikt | Das Frontend schickt beim Speichern neben den neuen Werten auch die Werte, die es beim Öffnen des Formulars geladen hat. Weicht der aktuelle Stand im Backend in irgendeinem Wert des Formulars davon ab, lehnt der Service die ganze Anfrage mit `409 EditConflict` ab und speichert nichts. Der Trainer muss neu laden und seine Eingaben wiederholen. Verglichen wird nur, was zum Formular gehört (z. B. die Bewertung eines Spielers), nicht das ganze Team. Bilder sind ausgenommen. Bei wenigen gleichzeitig arbeitenden Trainern kommt das selten vor. |
+| Speichern je Feld | Bestehende Daten (Team, Kaderspieler, Termin, Bewertung, Einstellungen) werden ohne Speichern-Button bearbeitet: Jede Änderung eines Feldes wird sofort einzeln an das Backend geschickt und gespeichert. Auswahlfelder, Zahlen, Sterne und Schalter speichern bei der Änderung, Textfelder beim Verlassen des Feldes, Bilder nach dem Zuschneiden. Ungültige Eingaben werden nicht geschickt, der Fehler steht am Feld. Jedes Feld zeigt, ob es gerade gespeichert wird, gespeichert ist oder ein Fehler auftrat. Entspricht der Wert dem aktuellen Stand, entsteht kein Event (Regel 12 in [5.2](#52-invarianten-und-regeln)). Nur das Anlegen (Team, Spieler, Spieltag, Training) hat einen Speichern-Button, weil die Pflichtfelder zusammen erfasst werden. |
+| Bearbeitungskonflikt | Das Frontend schickt mit jedem Feld auch den Wert, den es zuletzt für dieses Feld geladen bzw. gespeichert hat. Weicht der aktuelle Wert im Backend davon ab, hat ein anderer Trainer das Feld inzwischen geändert: Der Service lehnt mit `409 EditConflict` ab und speichert nichts. Die Antwort enthält den aktuellen Wert; das Frontend zeigt ihn im Feld an mit dem Hinweis, dass ein anderer Trainer ihn geändert hat, und der Trainer kann seine Eingabe wiederholen. Änderungen an anderen Feldern lösen keinen Konflikt aus. Bilder sind ausgenommen. |
 | Keine Trainingsserien | Trainings werden einzeln angelegt; „Wie letztes Training“ übernimmt Dauer, Thema und Schwerpunkte als Vorschlag. |
+| Eigene Betriebsumgebung | Kaderblick läuft in einer eigenen Docker-Compose-Umgebung mit eigener KurrentDB, getrennt von anderen Anwendungen auf dem Server. Nur der Reverse Proxy SWAG wird gemeinsam genutzt. Adresse: `kaderblick.raspo1926.info` (siehe [8.1.1](#811-bereitstellung)). |
 | REST-API nutzt Services | Der Controller oder Callback einer REST-API Methode soll niemals das TeamRepository direkt nutzen, sondern über Service-Klassen erfolgen, die die Verarbeitung von Anfragen orchestrieren. |
-
-_TODO: Weitere Entscheidungen ergänzen._
 
 ## 4. Fachliche Funktionen
 
@@ -195,11 +193,11 @@ Der Dialog **Spieler bearbeiten** hat zwei Bereiche:
 | Profil | Foto, Vorname, Name, Geburtsdatum, starker Fuß (Prüfungen wie in 4.2.1) | alle Teams des Spielers. Der Dialog weist darauf hin: „Änderungen am Profil gelten in allen Teams.“ |
 | Kader | Rückennummer, Position, Aktiv | nur das aktive Team |
 
-- **Speichern** schickt alle Felder; das Backend gleicht sie mit dem aktuellen Stand ab (siehe Getroffene Entscheidungen). Ein vorhandenes Foto lässt sich entfernen, eine Rückennummer löschen. Eine Position lässt sich ändern und entfernen (`removePosition`); der Spieler steht dann unter „Ohne Position“.
-- **Profiländerungen:** Weicht das Profil vom gespeicherten ab, schreibt der Service die Profildatei und danach `PlayerProfileChanged` in jedes Team, in dessen Kader der Spieler ist (siehe [5.3.2](#532-kader)).
-- **Kaderänderungen:** Der Service ruft für jedes abweichende Feld die passende Geschäftsmethode auf (`assignShirtNumber`, `removeShirtNumber`, `changePosition`, `removePosition`, `deactivatePlayer`, `reactivatePlayer`) und speichert alle Events in einem Schreibvorgang.
+- Jedes Feld wird sofort gespeichert (siehe „Speichern je Feld“ und „Bearbeitungskonflikt“). Ein vorhandenes Foto lässt sich entfernen, eine Rückennummer löschen. Eine Position lässt sich ändern und entfernen (`removePosition`); der Spieler steht dann unter „Ohne Position“. **Schließen** beendet den Dialog.
+- **Profiländerungen:** Der Service schreibt den geänderten Wert in die Profildatei und danach `PlayerProfileChanged` in jedes Team, in dessen Kader der Spieler ist (siehe [5.3.2](#532-kader)).
+- **Kaderänderungen:** Der Service ruft die passende Geschäftsmethode auf (`assignShirtNumber`, `removeShirtNumber`, `changePosition`, `removePosition`, `deactivatePlayer`, `reactivatePlayer`) und speichert das Event.
 - **Inaktiv setzen:** Der Dialog weist darauf hin, dass für inaktive Spieler keine Bewertungen erfasst werden können und bereits erfasste erhalten bleiben.
-- Antwort: `200` mit dem aktualisierten Kaderspieler.
+- Antwort je Feld: `200` mit dem aktualisierten Kaderspieler.
 
 #### 4.2.4 Aus dem Kader entfernen
 
@@ -222,8 +220,8 @@ Die App bietet keine Funktion, einen Spieler endgültig zu löschen. Verlangt ei
 | `404 PlayerNotInSquad` | „Der Spieler wurde inzwischen aus dem Kader entfernt.“ Das Frontend lädt den Kader neu. |
 | `422` ungültige Eingabe | Meldung am betroffenen Feld |
 | `413` bzw. ungültiges Bild | „Das Foto muss ein JPEG-Bild bis 5 MB sein.“ |
-| `409 EditConflict` | „Die Daten wurden inzwischen von einem anderen Trainer geändert. Bitte neu laden und die Eingaben wiederholen.“ Der Button **Neu laden** lädt den aktuellen Stand in den Dialog. |
-| `409 ConcurrencyConflict` | „Der Kader wurde gerade von einem anderen Trainer geändert. Bitte erneut speichern.“ |
+| `409 EditConflict` | „Dieser Wert wurde inzwischen von einem anderen Trainer geändert.“ Das Feld zeigt den aktuellen Wert; die Eingabe kann wiederholt werden. |
+| `409 ConcurrencyConflict` | „Der Kader wurde gerade von einem anderen Trainer geändert. Bitte erneut versuchen.“ |
 
 ### 4.3 Termine
 
@@ -259,7 +257,7 @@ Ablauf im Backend:
 
 **Spieltag bearbeiten**
 
-Der Dialog **Spieltag bearbeiten** wird aus der Bewertungsansicht geöffnet und enthält dieselben Felder, vorbelegt mit den aktuellen Werten. **Speichern** schickt alle Felder; der Service vergleicht sie mit dem aktuellen Stand und ruft für abweichende Felder die passenden Geschäftsmethoden auf (`rescheduleMatch`, `changeMatchday`, `removeMatchday`, `changeOpponent`, `removeOpponent`, `changeVenue`, `removeVenue`, `changeCompetition`, `removeCompetition`, `recordResult`, `clearResult`, `writeMatchNotes`, `removeMatchNotes`) und speichert alle Events in einem Schreibvorgang. Ein geleertes Feld gilt als Entfernen. Antwort: `200`.
+Der Dialog **Spieltag bearbeiten** wird aus der Bewertungsansicht geöffnet und enthält dieselben Felder, vorbelegt mit den aktuellen Werten. Jedes Feld wird sofort gespeichert; der Service ruft die passende Geschäftsmethode auf (`rescheduleMatch`, `changeMatchday`, `removeMatchday`, `changeOpponent`, `removeOpponent`, `changeVenue`, `removeVenue`, `changeCompetition`, `removeCompetition`, `recordResult`, `clearResult`, `writeMatchNotes`, `removeMatchNotes`). Ein geleertes Feld gilt als Entfernen. Das Ergebnis wird erst gespeichert, wenn beide Werte eingetragen oder beide geleert sind. **Schließen** beendet den Dialog. Antwort je Feld: `200`.
 
 **Spieltag löschen**
 
@@ -278,7 +276,7 @@ Der Dialog **Spieltag bearbeiten** enthält den Button **Löschen**. Der Bestät
 |---|---|---|---|
 | Datum | ja | gültiges Datum | heute |
 | Dauer | ja | ganze Zahl 1–600 Minuten | Trainingszeit aus den Einstellungen des Trainers |
-| Thema | nein | Freitext bis 100 Zeichen | – |
+| Thema | nein | Freitext bis 200 Zeichen | – |
 | Schwerpunkte | nein | Mehrfachauswahl aus der festen Liste (siehe [5.3.4](#534-trainings)) | – |
 | Notiz | nein | Freitext bis 2000 Zeichen | – |
 
@@ -303,8 +301,8 @@ Termindaten wie in der Liste, dazu die Notiz und der Button **Bearbeiten** (Term
 - Alle aktiven Kaderspieler, gruppiert und sortiert wie in der Kaderliste ([4.2](#42-kader)).
 - Inaktive Spieler erscheinen nur, wenn für sie bereits etwas erfasst ist, ausgegraut und nur lesbar.
 - Jede Zeile zeigt Foto, Name, Einsatz bzw. Anwesenheit (oder „nicht erfasst“), Leistungsnote und bei Spieltagen Tore und Karten.
-- Einsatz bzw. Anwesenheit lassen sich direkt in der Zeile wählen. Die Änderungen werden gesammelt und erst mit **Speichern** übertragen; **Verwerfen** setzt sie zurück. Wer die Ansicht mit ungespeicherten Änderungen verlässt, wird gefragt, ob sie verworfen werden sollen.
-- **Alle Startelf** (Spieltag) bzw. **Alle anwesend** (Training) erfasst sofort alle aktiven Spieler, für die noch nichts erfasst ist (siehe [5.3.5](#535-spielbewertung) und [5.3.6](#536-trainingsbewertung)). Bei ungespeicherten Änderungen in der Liste ist der Button gesperrt.
+- Einsatz bzw. Anwesenheit lassen sich direkt in der Zeile wählen und werden sofort gespeichert.
+- **Alle Startelf** (Spieltag) bzw. **Alle anwesend** (Training) erfasst sofort alle aktiven Spieler, für die noch nichts erfasst ist (siehe [5.3.5](#535-spielbewertung) und [5.3.6](#536-trainingsbewertung)).
 - Ein Klick auf einen Spieler öffnet den Dialog **Bewertung**.
 
 **Dialog Bewertung (Spieltag)**
@@ -312,7 +310,7 @@ Termindaten wie in der Liste, dazu die Notiz und der Button **Bearbeiten** (Term
 | Feld | Eingabe |
 |---|---|
 | Einsatz | Startelf, Eingewechselt, Nicht dabei |
-| Minuten | ganze Zahl ≥ 0; wird mit der Standard-Spielzeit des Trainers vorbelegt, sobald Startelf oder Eingewechselt gewählt ist und noch keine Minuten erfasst sind |
+| Minuten | ganze Zahl ≥ 0; wird mit der Standard-Spielzeit des Trainers vorbelegt und gespeichert, sobald Startelf oder Eingewechselt gewählt ist und noch keine Minuten erfasst sind |
 | Leistungsnote | 1–6 in halben Schritten, leer möglich |
 | Fairness | 1–6, leer möglich |
 | Eigenschaften | je 0–5 Sterne: Einsatz & Laufbereitschaft, Technik, Spielverständnis, Zweikampf, Teamgeist |
@@ -333,22 +331,22 @@ Termindaten wie in der Liste, dazu die Notiz und der Button **Bearbeiten** (Term
 Verhalten in beiden Dialogen:
 
 - Solange kein Einsatz (Startelf, Eingewechselt) bzw. keine Anwesenheit (Anwesend, Verspätet) gewählt ist, sind Minuten und Leistungswerte gesperrt. Der Kommentar ist immer möglich.
-- Wird Nicht dabei, Entschuldigt oder Unentschuldigt gewählt, weist der Dialog darauf hin, dass die erfassten Leistungswerte beim Speichern verfallen.
-- **Speichern** überträgt alle Werte des Dialogs, **Abbrechen** verwirft die Eingaben.
-- **Vor/Zurück** wechselt zum nächsten bzw. vorherigen Spieler der Liste. Ungespeicherte Änderungen werden vorher gespeichert.
+- Wird Nicht dabei, Entschuldigt oder Unentschuldigt gewählt und sind bereits Leistungswerte erfasst, fragt der Dialog vorher nach, weil diese Werte dann verfallen.
+- Jeder Wert wird sofort gespeichert. **Schließen** beendet den Dialog.
+- **Vor/Zurück** wechselt zum nächsten bzw. vorherigen Spieler der Liste. Ein Textfeld, das gerade bearbeitet wird, wird vorher gespeichert; schlägt das fehl, bleibt der Dialog beim aktuellen Spieler.
 - **Zurücksetzen** setzt die Bewertung nach Rückfrage auf „nicht erfasst“ zurück (`resetMatchRating` bzw. `resetTrainingRating`); der Kommentar bleibt erhalten.
 
 **Ablauf im Backend**
 
-1. Die Route prüft die übertragenen Werte mit Zod.
-2. Weicht der Kommentar vom gespeicherten Text ab, schreibt der Service zuerst die Kommentardatei. Ein geleerter Kommentar gilt als Entfernen; die Datei wird erst nach dem Event gelöscht.
-3. Der Service lädt das Team, vergleicht jeden Wert mit dem aktuellen Zustand und ruft nur für abweichende Werte die Geschäftsmethoden auf, in fester Reihenfolge: zuerst Einsatz bzw. Anwesenheit, dann Minuten und Leistungswerte, zuletzt der Kommentar. Geleerte Noten werden über die `withdraw…`-Methoden zurückgenommen, abgeschaltete Karten über `withdrawCard`.
-4. Alle Events werden in einem Schreibvorgang gespeichert. Lehnt eine Methode ab, wird nichts gespeichert und der Fehler gemeldet.
+Je Anfrage wird genau ein Wert eines Spielers gespeichert, im Dialog oder als Einsatz bzw. Anwesenheit aus der Spielerliste:
+
+1. Die Route prüft den Wert und den mitgeschickten zuletzt geladenen Wert mit Zod.
+2. Der Service lädt das Team und prüft auf einen Bearbeitungskonflikt: Weicht der aktuelle Wert vom mitgeschickten ab, lehnt er mit `409 EditConflict` ab und liefert den aktuellen Wert. Beim Kommentar wird mit dem Text der Datei verglichen.
+3. Beim Kommentar schreibt der Service danach die Kommentardatei. Ein geleerter Kommentar gilt als Entfernen; die Datei wird erst nach dem Event gelöscht.
+4. Der Service ruft die passende Geschäftsmethode auf und speichert das Event. Geleerte Noten werden über die `withdraw…`-Methoden zurückgenommen, abgeschaltete Karten über `withdrawCard`.
 5. Antwort: `200` mit der aktualisierten Bewertung.
 
-Die Spielerliste schickt Einsatz bzw. Anwesenheit aller Spieler der Liste und wird auf dieselbe Weise abgeglichen, mit einem Schreibvorgang für alle Spieler.
-
-Vor dem Aufruf der Geschäftsmethoden prüft der Service auf einen Bearbeitungskonflikt: Weicht die aktuelle Bewertung von den Werten ab, die das Frontend beim Öffnen geladen hat, wird mit `409 EditConflict` abgelehnt (bei der Spielerliste: Einsatz bzw. Anwesenheit irgendeines Spielers der Liste). Bewerten zwei Trainer gleichzeitig verschiedene Spieler im Dialog, gibt es keinen Konflikt.
+Bewerten zwei Trainer gleichzeitig verschiedene Werte oder verschiedene Spieler, gibt es keinen Konflikt.
 
 **Fehlermeldungen im Frontend**
 
@@ -359,8 +357,8 @@ Vor dem Aufruf der Geschäftsmethoden prüft der Service auf einen Bearbeitungsk
 | `422 PlayerInactive` | „Der Spieler ist inaktiv und kann nicht bewertet werden.“ |
 | `422 NotParticipating` | „Leistungswerte können erst nach Einsatz bzw. Anwesenheit erfasst werden.“ |
 | `422` ungültige Eingabe | Meldung am betroffenen Feld |
-| `409 EditConflict` | „Die Daten wurden inzwischen von einem anderen Trainer geändert. Bitte neu laden und die Eingaben wiederholen.“ Der Button **Neu laden** lädt den aktuellen Stand in den Dialog. |
-| `409 ConcurrencyConflict` | „Der Termin wurde gerade von einem anderen Trainer geändert. Bitte erneut speichern.“ |
+| `409 EditConflict` | „Dieser Wert wurde inzwischen von einem anderen Trainer geändert.“ Das Feld zeigt den aktuellen Wert; die Eingabe kann wiederholt werden. |
+| `409 ConcurrencyConflict` | „Der Termin wurde gerade von einem anderen Trainer geändert. Bitte erneut versuchen.“ |
 
 ### 4.4 Auswertungen
 
@@ -542,13 +540,13 @@ Schlägt Schritt 4 fehl, bleibt das Team ohne Wappen bzw. Trainerangabe bestehen
 
 Der Dialog **Team bearbeiten** enthält dieselben Felder und Prüfungen wie [Team anlegen](#451-team-anlegen), vorbelegt mit den aktuellen Werten. Zusätzlich lässt sich ein vorhandenes Wappen entfernen.
 
-- **Abbrechen** verwirft alle Änderungen.
-- **Speichern** schickt alle Felder an das Backend (Wappen nur, wenn ein neues gewählt wurde). Der Service vergleicht sie mit dem aktuellen Stand und ruft für jedes abweichende Feld die passende Geschäftsmethode auf (`rename`, `changeSeason`, `changeTier`, `uploadCrest`, `removeCrest`, `changeCoaches`, `removeCoaches`) und speichert alle entstandenen Events in einem Schreibvorgang. Unveränderte Felder erzeugen keine Events.
-- Ändert sich Name oder Saison, prüft der Service über die Team-Übersicht, ob es bereits ein anderes nicht gelöschtes Team mit dem neuen Namen und der neuen Saison gibt. Wenn ja: `409 DuplicateTeam`, es wird nichts gespeichert.
+- Jedes Feld wird sofort gespeichert (siehe „Speichern je Feld“), ein neues Wappen nach dem Zuschneiden. Der Service ruft die passende Geschäftsmethode auf (`rename`, `changeSeason`, `changeTier`, `uploadCrest`, `removeCrest`, `changeCoaches`, `removeCoaches`) und speichert das Event.
+- **Schließen** beendet den Dialog.
+- Ändert sich Name oder Saison, prüft der Service über die Team-Übersicht, ob es bereits ein anderes nicht gelöschtes Team mit dem neuen Namen und der neuen Saison gibt. Wenn ja: `409 DuplicateTeam`, der Wert wird nicht gespeichert.
 - Wappen und Trainerangabe: Beim Hochladen bzw. Ändern wird erst die Datei geschrieben, dann das Event. Beim Entfernen wird erst das Event geschrieben, dann die Datei gelöscht. Ein leeres Trainerfeld gilt als Entfernen.
-- Antwort: `200` mit dem aktualisierten Team.
+- Antwort je Feld: `200` mit dem aktualisierten Team.
 
-Hat ein anderer Trainer die Teamdaten geändert, seit der Dialog geöffnet wurde, lehnt der Service mit `409 EditConflict` ab (siehe „Bearbeitungskonflikt“).
+Für jedes Feld gilt die Konfliktprüfung (siehe „Bearbeitungskonflikt“).
 
 **Löschen**
 
@@ -574,8 +572,8 @@ War das gelöschte Team das aktive Team eines Trainers, wird beim nächsten Lese
 | `409 DuplicateTeam` | „Ein Team mit diesem Namen und dieser Saison existiert bereits.“ |
 | `422 LastTeam` | „Das letzte Team kann nicht gelöscht werden. Lege zuerst ein weiteres Team an.“ |
 | `404 TeamDeleted` / `TeamNotFound` | „Dieses Team wurde inzwischen gelöscht.“ Das Frontend lädt danach die Einstellungen neu. |
-| `409 EditConflict` | „Die Daten wurden inzwischen von einem anderen Trainer geändert. Bitte neu laden und die Eingaben wiederholen.“ Der Button **Neu laden** lädt den aktuellen Stand in den Dialog. |
-| `409 ConcurrencyConflict` | „Das Team wurde gerade von einem anderen Trainer geändert. Bitte erneut speichern.“ |
+| `409 EditConflict` | „Dieser Wert wurde inzwischen von einem anderen Trainer geändert.“ Das Feld zeigt den aktuellen Wert; die Eingabe kann wiederholt werden. |
+| `409 ConcurrencyConflict` | „Das Team wurde gerade von einem anderen Trainer geändert. Bitte erneut versuchen.“ |
 
 #### 4.5.3 Bewertungen als CSV exportieren
 
@@ -679,33 +677,30 @@ Das Bild erzeugt das Frontend (PNG, 1080 × 1350 Pixel, Hochformat) mit eingebet
 
 ### 4.6 Einstellungen
 
-Der Reiter `Einstellungen` hat vier Bereiche.
+Der Reiter `Einstellungen` hat drei Bereiche.
 
 **Angemeldeter Trainer**
 
 Zeigt Name und E-Mail des angemeldeten Trainers aus der Trainer-Konfiguration, nur lesbar. Darunter der Button **Abmelden** (siehe [4.1.3](#413-sitzung-beenden)). Änderungen an Name oder E-Mail erfolgen über die Trainer-Konfiguration ([8.1](#81-konfiguration)).
 
-**Vorgaben**
+**Einstellungen des Trainers**
 
 | Feld | Pflicht | Eingabe und Prüfung | Standard | Wirkung |
 |---|---|---|---|---|
 | Trainingszeit | ja | ganze Zahl 1–600 Minuten | 90 | Vorbelegung der Dauer beim Anlegen eines Trainings ([4.3.2](#432-trainings)) |
 | Standard-Spielzeit | ja | ganze Zahl 1–120 Minuten | 12 | Vorbelegung der gespielten Minuten in der Spielbewertung ([4.3.3](#433-bewertungsansicht)) |
+| Darstellung | ja | Hell, Dunkel, Wie System | Wie System | Farbschema des Frontends |
 
-- **Speichern** schickt beide Werte an das Backend, wie bei allen Formularen vollständig. Der Service schreibt sie in `trainer/{trainerId}/settings.json`; das aktive Team in derselben Datei bleibt unverändert. Antwort: `200`.
-- **Verwerfen** setzt die Felder auf den gespeicherten Stand zurück.
-- Die Vorgaben gelten für den Trainer auf allen seinen Geräten und wirken nur auf neue Eingaben; bereits gespeicherte Trainings und Bewertungen ändern sich nicht.
+- Jeder Wert wird sofort gespeichert (siehe „Speichern je Feld“). Der Service schreibt ihn in `trainer/{trainerId}/settings.json`; die übrigen Werte und das aktive Team in derselben Datei bleiben unverändert. Antwort: `200`.
+- Eine geänderte Darstellung wird sofort angewendet.
+- Die Einstellungen gelten für den Trainer auf allen seinen Geräten. Trainingszeit und Standard-Spielzeit wirken nur auf neue Eingaben; bereits gespeicherte Trainings und Bewertungen ändern sich nicht.
+- Vor der Anmeldung kennt das Frontend den Trainer nicht; die Anmeldeseite nutzt deshalb immer das Farbschema des Systems.
 - Die Einstellungen gehören nur einem Trainer und erzeugen keine Events. Es gibt keine Konfliktprüfung: Speichert derselbe Trainer auf zwei Geräten, gilt der zuletzt gespeicherte Stand.
-- Fehlt `settings.json`, gelten die Standardwerte.
-
-**Darstellung**
-
-Auswahl **Hell**, **Dunkel** oder **Wie System** (Standard). Die Auswahl wird nur im Browser des Geräts gespeichert und sofort angewendet; das Backend ist nicht beteiligt.
+- Fehlt `settings.json` oder ein Wert darin, gelten die Standardwerte.
 
 **Info**
 
-- Versionsnummer des Frontends und des Backends (das Backend liefert seine Version über einen Endpunkt ohne Anmeldung, siehe [6](#6-api)).
-- Link zur Datenschutzerklärung. Ihre Adresse wird beim Bereitstellen des Frontends festgelegt.
+Versionsnummer des Frontends und des Backends. Das Backend liefert seine Version über einen Endpunkt ohne Anmeldung (siehe [6](#6-api)).
 
 ## 5. Domänenmodell
 
@@ -744,9 +739,10 @@ Die `teamId` ist eine fortlaufende Nummer, die das Backend beim Anlegen vergibt:
 
 1. Der Service nimmt die höchste bekannte `teamId` aus der Team-Übersicht (einschließlich gelöschter Teams) und addiert 1.
 2. Das neue Team wird mit `NO_STREAM` gespeichert.
-3. Existiert der Stream bereits (gleichzeitiges Anlegen oder Projektion noch nicht aktuell) oder wurde er früher gelöscht, versucht der Service einmal die nächste Nummer. Schlägt auch das fehl, wird mit `409` abgelehnt.
+3. Ist die Nummer durch einen endgültig gelöschten Stream gesperrt (`StreamDeleted`), nimmt der Service die nächste Nummer, so lange, bis eine frei ist. Gesperrte Nummern zählen nicht als Fehlversuch.
+4. Existiert der Stream bereits (gleichzeitiges Anlegen oder Projektion noch nicht aktuell), versucht der Service einmal die nächste Nummer. Schlägt auch das fehl, wird mit `409` abgelehnt.
 
-Nummern werden nicht wiederverwendet: Der Aufräumjob löscht verwaiste Streams endgültig (Tombstone), sodass unter derselben Nummer kein neuer Stream entstehen kann.
+Nummern werden nicht wiederverwendet: Der Aufräumjob löscht verwaiste Streams endgültig (Tombstone), sodass unter derselben Nummer kein neuer Stream entstehen kann. Nach dem Scavenge fehlen gelöschte Teams auch in der Team-Übersicht, Schritt 1 kann deshalb eine gesperrte Nummer liefern; Schritt 3 überspringt sie.
 
 #### 5.1.4 Laden und Speichern
 
@@ -908,7 +904,7 @@ Geschäftsmethoden liefern im `Err`-Fall einen der folgenden Fehler. Die Routen 
 | `InvalidValue` | Wert außerhalb des erlaubten Bereichs. | `422` |
 | `CardAlreadyShown` / `CardNotShown` | Karte wurde bereits gezeigt bzw. nicht gezeigt. | `422` |
 
-Dazu kommen die Fehler aus Repository und Service: `TeamNotFound` (`404`), `ConcurrencyConflict` (`409`), `EditConflict` (`409`, Daten des Formulars wurden inzwischen geändert), `DuplicateTeam` (`409`) und `LastTeam` (`422`).
+Dazu kommen die Fehler aus Repository und Service: `TeamNotFound` (`404`), `ConcurrencyConflict` (`409`), `EditConflict` (`409`, das Feld wurde inzwischen von einem anderen Trainer geändert), `DuplicateTeam` (`409`) und `LastTeam` (`422`).
 
 ### 5.4 Personenbezogene Daten (DSGVO)
 
@@ -945,7 +941,7 @@ data/
       notes.txt                     Notiz zum Training
       comments/{playerId}.txt       Kommentar zur Trainingsbewertung
   trainer/{trainerId}/
-    settings.json                   aktives Team, Trainingszeit, Standard-Spielzeit
+    settings.json                   aktives Team, Trainingszeit, Standard-Spielzeit, Darstellung
 ```
 
 Das Wappen ist nicht personenbezogen, wird aber ebenfalls auf dem Dateisystem abgelegt, damit die Events klein bleiben. Events vermerken nur, dass ein Wappen hochgeladen oder entfernt wurde.
@@ -959,7 +955,7 @@ Das Wappen ist nicht personenbezogen, wird aber ebenfalls auf dem Dateisystem ab
 
 | Anlass | Was passiert |
 |---|---|
-| Spieler löschen (auf Anfrage) | `player/{playerId}/` und alle `comments/{playerId}.txt` in allen Teams werden gelöscht. Die Fundorte liefert das Spielerverzeichnis. Events und Kaderzugehörigkeit bleiben unverändert. |
+| Spieler löschen (auf Anfrage) | Der Betreiber löscht `player/{playerId}/` und alle `comments/{playerId}.txt` in allen Teams von Hand (siehe [8.4](#84-spieler-auf-anfrage-löschen)). Events und Kaderzugehörigkeit bleiben unverändert. |
 | Spieler aus dem Kader entfernen | Nach `PlayerRemovedFromSquad` werden seine Kommentare in diesem Team gelöscht. Ist er danach in keinem Team mehr, löscht der tägliche Aufräumjob auch sein Profil. |
 | Spieltag bzw. Training löschen | Nach `MatchDeleted` bzw. `TrainingDeleted` wird das Verzeichnis des Termins mit Notiz und Kommentaren gelöscht. |
 | Team löschen | Nach `TeamDeleted` wird `team/{teamId}/` sofort gelöscht. Spieler, die danach in keinem Team mehr sind, löscht der tägliche Aufräumjob. |
@@ -982,7 +978,7 @@ Fehlende Dateien sind kein Fehler. Beim Ausliefern gelten diese Standardwerte:
 
 #### 5.4.7 Backups
 
-Event Store und Datenverzeichnis werden immer gemeinsam gesichert, damit Events und Dateien zusammenpassen. Gelöschte personenbezogene Daten bleiben in älteren Backups enthalten, bis diese turnusmäßig gelöscht werden. Die Aufbewahrungsdauer wird in [8.2](#82-backups) festgelegt.
+Event Store und Datenverzeichnis werden täglich zur selben Zeit gesichert und immer gemeinsam zurückgespielt (Archive vom selben Tag), damit Events und Dateien zusammenpassen. Gelöschte personenbezogene Daten bleiben in älteren Backups enthalten, bis diese turnusmäßig gelöscht werden. Die Aufbewahrungsdauer wird in [8.2](#82-backups) festgelegt.
 
 ### 5.5 Read-Models
 
@@ -1005,7 +1001,7 @@ Read-Models (Projektionen) beantworten alle lesenden Anfragen, die mehr als ein 
 | Read-Model | Schlüssel | Verwendung |
 |---|---|---|
 | Team-Übersicht | `teamId` | Teamauswahl, Teamverwaltung, Prüfung auf doppelte Namen, Prüfung „letztes Team“, Wahl des nächsten aktiven Teams, Aufräumjob verwaiste Streams |
-| Spielerverzeichnis | `playerId` | Suche nach bestehenden Spielern beim Hinzufügen zum Kader, Aufräumjob verwaiste Spieler, Löschen eines Spielers (DSGVO) |
+| Spielerverzeichnis | `playerId` | Suche nach bestehenden Spielern beim Hinzufügen zum Kader, Aufräumjob verwaiste Spieler |
 | Kader | `teamId` → `playerId` | Reiter `Kader`, Spielerauswahl in Bewertungen und Filtern |
 | Termine | `teamId` → Termin-ID | Reiter `Termine` (Liste der Spieltage und Trainings) |
 | Termin-Detail | `teamId` → Termin-ID → `playerId` | Bewertungsansicht eines Termins, CSV-Export |
@@ -1039,13 +1035,11 @@ Je Spieler:
 |---|---|
 | `playerId` | zufällige UUID |
 | `teamIds` | Teams, in deren Kader der Spieler aktuell ist (ohne gelöschte Teams) |
-| `commentLocations` | Termine (Team, Spieltag bzw. Training), zu denen ein Kommentar über den Spieler existiert |
 
 Abfragen:
 
 - Suche nach Spielern für „Spieler zum Kader hinzufügen“. Die Suche nach Name läuft über die Profildateien der Spieler im Verzeichnis.
 - Spieler ohne Team (`teamIds` leer): Kandidaten für den täglichen Aufräumjob.
-- Ablageorte der Kommentare eines Spielers: zum vollständigen Löschen seiner Dateien.
 
 #### 5.5.5 Kader
 
@@ -1100,13 +1094,185 @@ Die Berechnung ist eine reine Funktion ohne I/O (Termine und Bewertungen rein, K
 
 ## 6. API
 
+Das Backend bietet eine REST-API für das Frontend. Frontend und Backend laufen unter derselben Domain (Session-Cookie mit `SameSite=Strict`).
+
 ### 6.1 Allgemeines
 
-_TODO: Authentifizierung, Versionierung, Fehlerformat, Statuscodes._
+#### 6.1.1 Grundlagen
+
+| Thema | Festlegung |
+|---|---|
+| Basis-Pfad | `/api/v1`. Eine neue Version (`/api/v2`) entsteht nur bei inkompatiblen Änderungen. |
+| Adressierung | Teamdaten werden immer mit dem Team im Pfad adressiert, z. B. `/api/v1/teams/7/matches`. Das aktive Team ist nur eine Einstellung des Trainers, keine implizite Adresse. |
+| Format | JSON (UTF-8), Feldnamen in camelCase. Bilder als `multipart/form-data` bzw. `image/jpeg`, CSV als `text/csv`. |
+| Datum | `JJJJ-MM-TT` (z. B. `2026-09-12`), Zeitpunkte ISO 8601 in UTC. Die Saison wird im Format `JJJJ_JJ` übertragen. |
+| IDs | `teamId` als Zahl, `playerId`, `matchId` und `trainingId` als UUID. |
+| Validierung | Alle Eingaben (Pfad, Query, Body) und alle Antworten werden mit Zod geprüft (`fastify-type-provider-zod`). |
+| Dokumentation | `@fastify/swagger` erzeugt die OpenAPI-Beschreibung aus den Zod-Schemas. Swagger UI und OpenAPI-Dokument sind nur in der Entwicklung erreichbar. |
+
+#### 6.1.2 Authentifizierung
+
+- Alle Endpunkte außer Anmeldung, Health und Version setzen eine gültige Sitzung voraus (Session-Cookie, siehe [4.1](#41-ersteinrichtung-und-anmeldung)). Ohne gültige Sitzung: `401 Unauthenticated`.
+- Bei jeder Anfrage prüft das Backend, ob die `trainerId` der Sitzung noch in der Trainer-Konfiguration steht.
+- Die Anmeldung ist durch `@fastify/rate-limit` geschützt (5 Fehlversuche pro IP in 15 Minuten, dann `429`).
+- Schutz vor Cross-Site-Requests bietet das Cookie-Attribut `SameSite=Strict`. CORS ist nicht freigegeben.
+
+#### 6.1.3 Einzelfeld-Änderungen
+
+Bestehende Daten werden je Feld geändert (siehe „Speichern je Feld“ in den Getroffenen Entscheidungen). Dafür gibt es pro Ressource einen `PATCH`-Endpunkt, der genau ein Feld ändert:
+
+```json
+{ "field": "grade", "value": 2.5, "previous": 3 }
+```
+
+- `field` nennt das Feld; welche Felder es gibt, steht bei den Endpunkten. Zod prüft `value` und `previous` je nach Feld (Discriminated Union über `field`).
+- `value: null` entfernt einen optionalen Wert (z. B. Rückennummer, Note, Kommentar).
+- `previous` ist der zuletzt geladene Wert. Weicht der aktuelle Wert davon ab, antwortet das Backend mit `409 EditConflict` und dem aktuellen Wert in `currentValue`. Ausnahme: Einstellungen kennen kein `previous`.
+- Antwort: `200` mit der aktualisierten Ressource.
+
+Bilder werden nicht per `PATCH`, sondern über eigene Endpunkte hochgeladen (`PUT`, `multipart/form-data` mit den Teilen `original` und `cropped`, je JPEG bis 5 MB) und entfernt (`DELETE`).
+
+#### 6.1.4 Revision, ETag und Polling
+
+- Lesende Endpunkte eines Teams (alles unter `/teams/{teamId}`) liefern die Revision des Teams als `ETag`. Mit `If-None-Match` antwortet das Backend bei unverändertem Stand mit `304 Not Modified` (siehe [7.2](#72-änderungen-anderer-trainer-erkennen)).
+- Die Team-Liste (`GET /teams`) und die Spielersuche liefern als `ETag` die zuletzt verarbeitete Position aller Team-Events.
+- Schreibende Endpunkte warten, bis die Read-Models die geschriebene Revision verarbeitet haben (höchstens 2 Sekunden), und liefern die neue Revision als `ETag`. Läuft die Wartezeit ab, enthält die Antwort zusätzlich den Header `X-Projection-Pending: true` (siehe [7.1](#71-eigene-änderungen-sofort-sehen)).
+
+#### 6.1.5 Fehlerformat
+
+Fehler werden als Problem Details nach RFC 9457 geliefert (`Content-Type: application/problem+json`):
+
+```json
+{
+  "type": "EditConflict",
+  "title": "Der Wert wurde inzwischen geändert.",
+  "status": 409,
+  "detail": "Feld grade der Bewertung wurde von einem anderen Trainer geändert.",
+  "currentValue": 2
+}
+```
+
+| Feld | Inhalt |
+|---|---|
+| `type` | Name des Fehlers, z. B. `EditConflict`, `DuplicateTeam`, `ValidationError` (siehe [5.3.7](#537-fachliche-fehler)) |
+| `title` | kurze, gleichbleibende Beschreibung des Fehlertyps |
+| `status` | HTTP-Statuscode |
+| `detail` | Beschreibung des konkreten Falls |
+| `errors` | nur bei `ValidationError`: Liste aus `{ field, message }` |
+| `currentValue` | nur bei `EditConflict`: aktueller Wert des Feldes |
+
+Fehlerantworten enthalten nie personenbezogene Daten, Stacktraces oder interne Details. Das Frontend zeigt eigene Meldungen an (siehe Fehlertabellen in [4](#4-fachliche-funktionen)) und nutzt dafür `type`.
+
+#### 6.1.6 Statuscodes
+
+| Status | Bedeutung |
+|---|---|
+| `200` | Erfolg mit Antwort |
+| `201` | Angelegt; `Location`-Header mit der neuen Ressource |
+| `204` | Erfolg ohne Antwort (Löschen, Abmelden) |
+| `304` | Unverändert (`If-None-Match`) |
+| `400` | `ValidationError`: Eingabe entspricht nicht dem Schema |
+| `401` | `Unauthenticated`: keine gültige Sitzung bzw. falscher Zugangsschlüssel |
+| `404` | Ressource existiert nicht oder ist gelöscht (`TeamNotFound`, `TeamDeleted`, `PlayerNotInSquad`, `MatchNotFound`, …) |
+| `409` | Konflikt (`EditConflict`, `ConcurrencyConflict`, `DuplicateTeam`, `PlayerAlreadyInSquad`, `IdAlreadyUsed`) |
+| `413` | Bild größer als 5 MB |
+| `415` | Bild ist kein JPEG |
+| `422` | Fachlich unzulässig (`InvalidName`, `InvalidSeason`, `PlayerInactive`, `NotParticipating`, `InvalidValue`, `CardAlreadyShown`, `CardNotShown`, `LastTeam`) |
+| `429` | Zu viele Anmeldeversuche |
+| `503` | Backend noch nicht bereit (Read-Models werden aufgebaut) |
+| `500` | Unerwarteter Fehler; wird protokolliert (nur mit IDs) |
 
 ### 6.2 Endpunkte
 
-_TODO_
+Alle Pfade sind relativ zu `/api/v1`. Die genauen Schemas von Anfragen und Antworten stehen als Zod-Schemas im Code und in der generierten OpenAPI-Beschreibung.
+
+#### 6.2.1 System und Sitzung
+
+| Methode | Pfad | Zweck | Antwort |
+|---|---|---|---|
+| `GET` | `/health` | Bereitschaft, ohne Anmeldung | `200` bzw. `503` |
+| `GET` | `/version` | Version des Backends, ohne Anmeldung ([4.6](#46-einstellungen)) | `200 { version }` |
+| `POST` | `/session` | Anmelden mit `{ accessKey }` ([4.1.1](#411-anmelden)) | `204` mit Session-Cookie, `401`, `429` |
+| `DELETE` | `/session` | Abmelden | `204` |
+| `GET` | `/me` | Name und E-Mail des angemeldeten Trainers | `200` |
+| `GET` | `/me/settings` | Einstellungen; bestimmt dabei das aktive Team ([4.1.2](#412-aktives-team-nach-der-anmeldung)) | `200 { activeTeamId, trainingDuration, defaultMatchMinutes, theme }` |
+| `PATCH` | `/me/settings` | ein Feld: `activeTeamId`, `trainingDuration`, `defaultMatchMinutes`, `theme` (ohne `previous`) | `200`; `404` bei unbekanntem bzw. gelöschtem Team |
+
+`activeTeamId` ist `null`, wenn es noch kein Team gibt; dann zeigt das Frontend den Dialog „Team anlegen“.
+
+#### 6.2.2 Teams
+
+| Methode | Pfad | Zweck | Antwort |
+|---|---|---|---|
+| `GET` | `/teams` | alle nicht gelöschten Teams, sortiert ([4.5](#45-team)) | `200` |
+| `POST` | `/teams` | Team anlegen, `multipart/form-data` mit Teil `data` (JSON: `name`, `season`, `tier`, `coaches`) und optional `crestOriginal`, `crestCropped` ([4.5.1](#451-team-anlegen)) | `201 { teamId }` |
+| `GET` | `/teams/{teamId}` | Teamdaten inkl. Trainerangabe und Kennzahlen | `200` |
+| `PATCH` | `/teams/{teamId}` | ein Feld: `name`, `season`, `tier`, `coaches` ([4.5.2](#452-team-bearbeiten-und-löschen)) | `200` |
+| `DELETE` | `/teams/{teamId}` | Team löschen | `204` |
+| `GET` | `/teams/{teamId}/crest?variant=cropped\|original` | Wappen | `200 image/jpeg`, `404` ohne Wappen |
+| `PUT` | `/teams/{teamId}/crest` | Wappen hochladen | `200` |
+| `DELETE` | `/teams/{teamId}/crest` | Wappen entfernen | `204` |
+| `GET` | `/teams/{teamId}/statistics?from=&to=` | Auswertung ([4.4](#44-auswertungen), [4.5.4](#454-saisonbilanz-teilen)) | `200` |
+| `GET` | `/teams/{teamId}/ratings.csv?types=match,training&from=&to=` | CSV-Export ([4.5.3](#453-bewertungen-als-csv-exportieren)) | `200 text/csv` |
+
+#### 6.2.3 Kader und Spieler
+
+| Methode | Pfad | Zweck | Antwort |
+|---|---|---|---|
+| `GET` | `/teams/{teamId}/squad` | Kaderliste mit Profildaten ([4.2](#42-kader)) | `200` |
+| `POST` | `/teams/{teamId}/squad` | bestehenden Spieler hinzufügen: `{ playerId, shirtNumber?, position? }` | `201` |
+| `POST` | `/teams/{teamId}/squad/player` | neuen Spieler anlegen und hinzufügen, `multipart/form-data` mit Teil `data` (JSON: `firstName`, `lastName`, `birthDate`, `strongFoot`, `shirtNumber`, `position`) und optional `photoOriginal`, `photoCropped` ([4.2.1](#421-spieler-hinzufügen)) | `201 { playerId }` |
+| `POST` | `/teams/{teamId}/squad/import` | Kader übernehmen: `{ sourceTeamId, playerIds }` ([4.2.2](#422-kader-aus-anderem-team-übernehmen)) | `200 { added }` |
+| `PATCH` | `/teams/{teamId}/squad/{playerId}` | ein Feld: `shirtNumber`, `position`, `active` ([4.2.3](#423-spieler-bearbeiten)) | `200` |
+| `DELETE` | `/teams/{teamId}/squad/{playerId}` | aus dem Kader entfernen ([4.2.4](#424-aus-dem-kader-entfernen)) | `204` |
+| `GET` | `/players?search=&excludeTeamId=` | Spielersuche, ab 2 Zeichen ([4.2.1](#421-spieler-hinzufügen)) | `200` |
+| `PATCH` | `/players/{playerId}` | ein Profilfeld: `firstName`, `lastName`, `birthDate`, `strongFoot` | `200` |
+| `GET` | `/players/{playerId}/photo?variant=cropped\|original` | Foto | `200 image/jpeg`, `404` ohne Foto |
+| `PUT` | `/players/{playerId}/photo` | Foto hochladen | `200` |
+| `DELETE` | `/players/{playerId}/photo` | Foto entfernen | `204` |
+
+Profiländerungen (`PATCH /players/…` und Foto) schreiben zusätzlich `PlayerProfileChanged` in alle Teams des Spielers (siehe [5.3.2](#532-kader)).
+
+#### 6.2.4 Spieltage
+
+| Methode | Pfad | Zweck | Antwort |
+|---|---|---|---|
+| `GET` | `/teams/{teamId}/matches` | Liste der Spieltage ([4.3.1](#431-spieltage)) | `200` |
+| `POST` | `/teams/{teamId}/matches` | Spieltag anlegen: `{ date, matchday?, opponent?, venue?, competition?, result?, notes? }` | `201 { matchId }` |
+| `GET` | `/teams/{teamId}/matches/{matchId}` | Bewertungsansicht: Spieltag, Notiz und Bewertungen aller Spieler mit Namen und Kommentaren ([4.3.3](#433-bewertungsansicht)) | `200` |
+| `PATCH` | `/teams/{teamId}/matches/{matchId}` | ein Feld: `date`, `matchday`, `opponent`, `venue`, `competition`, `result` (`{ goalsFor, goalsAgainst }`), `notes` | `200` |
+| `DELETE` | `/teams/{teamId}/matches/{matchId}` | Spieltag löschen | `204` |
+| `PATCH` | `/teams/{teamId}/matches/{matchId}/ratings/{playerId}` | ein Feld der Spielbewertung: `participation`, `minutes`, `grade`, `fairness`, `attributes.effort`, `attributes.technique`, `attributes.gameIntelligence`, `attributes.duels`, `attributes.teamSpirit`, `goals`, `assists`, `saves`, `cards.yellow`, `cards.yellowRed`, `cards.red`, `comment` | `200` |
+| `DELETE` | `/teams/{teamId}/matches/{matchId}/ratings/{playerId}` | Bewertung zurücksetzen, Kommentar bleibt | `204` |
+| `POST` | `/teams/{teamId}/matches/{matchId}/mark-all-starting` | „Alle Startelf“ | `200 { marked }` |
+
+#### 6.2.5 Trainings
+
+| Methode | Pfad | Zweck | Antwort |
+|---|---|---|---|
+| `GET` | `/teams/{teamId}/trainings` | Liste der Trainings ([4.3.2](#432-trainings)) | `200` |
+| `POST` | `/teams/{teamId}/trainings` | Training anlegen: `{ date, duration, topic?, focus?, notes? }` | `201 { trainingId }` |
+| `GET` | `/teams/{teamId}/trainings/{trainingId}` | Bewertungsansicht des Trainings | `200` |
+| `PATCH` | `/teams/{teamId}/trainings/{trainingId}` | ein Feld: `date`, `duration`, `topic`, `focus`, `notes` | `200` |
+| `DELETE` | `/teams/{teamId}/trainings/{trainingId}` | Training löschen | `204` |
+| `PATCH` | `/teams/{teamId}/trainings/{trainingId}/ratings/{playerId}` | ein Feld der Trainingsbewertung: `attendance`, `grade`, `fairness`, `attributes.*` wie beim Spieltag, `comment` | `200` |
+| `DELETE` | `/teams/{teamId}/trainings/{trainingId}/ratings/{playerId}` | Bewertung zurücksetzen, Kommentar bleibt | `204` |
+| `POST` | `/teams/{teamId}/trainings/{trainingId}/mark-all-present` | „Alle anwesend“ | `200 { marked }` |
+
+#### 6.2.6 Feldwerte
+
+| Feld | Werte in der API |
+|---|---|
+| `position` | `TW`, `AB`, `MF`, `ST`, `AR` (Allrounder); die üblichen Kürzel der Fachsprache |
+| `strongFoot` | `right`, `left`, `both` |
+| `venue` | `home`, `away`, `neutral` |
+| `competition` | `league`, `cup`, `friendly`, `tournament` |
+| `participation` | `starting`, `substitute`, `absent` |
+| `attendance` | `present`, `late`, `excused`, `unexcused` |
+| `focus` | Liste aus `technique`, `tactics`, `fitness`, `shooting`, `smallSidedGames`, `athletics`, `setPieces`, `goalkeeping` |
+| `theme` | `light`, `dark`, `system` |
+
+Dieselben Werte stehen in den Events (siehe [5.3](#53-geschäftsmethoden-und-events)) und sind einmal zentral als Zod-Schemas definiert. Die Anzeige auf Deutsch übernimmt das Frontend.
 
 ## 7. Gemeinsamer Datenstand
 
@@ -1126,12 +1292,12 @@ Das Frontend fragt den Stand des aktiven Teams regelmäßig ab (Polling):
 
 Lesende Endpunkte eines Teams liefern als `ETag` die Revision des Teams, bis zu der die Projektion aktuell ist. Das Frontend schickt sie als `If-None-Match` mit. Hat sich nichts geändert, antwortet das Backend mit `304 Not Modified` ohne Body. Das Polling ist dadurch billig.
 
-Erkennt das Frontend eine neue Revision, lädt es die aktuelle Ansicht neu. Ungespeicherte Eingaben in einem offenen Dialog bleiben dabei erhalten.
+Erkennt das Frontend eine neue Revision, lädt es die aktuelle Ansicht neu. Ein Feld, in dem der Trainer gerade tippt, wird dabei nicht überschrieben.
 
 ### 7.3 Gleichzeitige Änderungen
 
 - Gleichzeitige Änderungen am selben Team erkennt das Backend über optimistisches Sperren und löst sie durch einmaliges Neuladen und erneutes Aufrufen der Geschäftsmethode (siehe „Team speichern“).
-- Hat ein anderer Trainer die Daten eines Formulars geändert, seit es geöffnet wurde (z. B. die Bewertung desselben Spielers), wird das Speichern mit `409 EditConflict` abgelehnt. Der Trainer lädt neu und wiederholt seine Eingaben. So wird keine Änderung unbemerkt überschrieben.
+- Jedes Feld wird einzeln gespeichert. Hat ein anderer Trainer genau dieses Feld geändert, seit es geladen wurde, wird das Speichern mit `409 EditConflict` abgelehnt; das Frontend zeigt den aktuellen Wert, und der Trainer kann seine Eingabe wiederholen. So wird keine Änderung unbemerkt überschrieben.
 - Wird eine Änderung fachlich abgelehnt, weil sich der Stand inzwischen geändert hat (z. B. Spieler wurde von einem anderen Trainer aus dem Kader entfernt), zeigt das Frontend die Fehlermeldung und lädt die Ansicht neu.
 
 ### 7.4 Bewusst nicht vorgesehen
@@ -1160,21 +1326,281 @@ Aufbau der Trainer-Konfiguration (siehe [Begriffe](#2-begriffe)). Die Zugangssch
 }
 ```
 
-_TODO_
+Weitere Umgebungsvariablen:
+
+| Variable | Bedeutung | Standard |
+|---|---|---|
+| `KADERBLICK_KURRENTDB_URL` | Verbindungs-URL zu KurrentDB, z. B. `kurrentdb://kaderblick-kurrentdb:2113?tls=false` | – (Pflicht) |
+| `KADERBLICK_KURRENTDB_HTTP_URL` | HTTP-Adresse von KurrentDB für den Scavenge (siehe [8.5](#85-wiederkehrende-jobs)) | – (Pflicht) |
+| `DATA_DIR` | Datenverzeichnis für personenbezogene Daten, Wappen und Einstellungen (siehe [5.4.2](#542-ablage)) | `/data` |
+| `PORT` | Port des HTTP-Servers | `8080` |
+| `TRUST_PROXY` | `true`, wenn das Backend hinter einem Reverse Proxy läuft (für die IP-Adresse beim Rate-Limit) | `false` |
+| `LOG_LEVEL` | Pino-Log-Level | `info` |
+
+Alle Variablen werden beim Start mit einem Zod-Schema geprüft; bei ungültiger Konfiguration bricht der Start mit einer klaren Fehlermeldung ab.
+
+#### 8.1.1 Bereitstellung
+
+Kaderblick läuft in einer eigenen Docker-Compose-Umgebung, getrennt von anderen Anwendungen auf dem Server, mit eigener KurrentDB. Erreichbar ist es unter `https://kaderblick.raspo1926.info`.
+
+| Dienst | Aufgabe |
+|---|---|
+| `kaderblick-frontend` | Webserver, liefert das Frontend aus |
+| `kaderblick-backend` | Fastify-Backend |
+| `kaderblick-kurrentdb` | eigene KurrentDB (ein Knoten) nur für Kaderblick |
+| `kaderblick-backup-kurrentdb`, `kaderblick-backup-data` | Backup-Jobs (siehe [8.2](#82-backups)) |
+
+**Netzwerke und Reverse Proxy**
+
+- Der Reverse Proxy SWAG läuft in der bestehenden Compose-Umgebung und wird von allen Anwendungen auf dem Server gemeinsam genutzt. Er terminiert HTTPS (Zertifikat von Let's Encrypt, `kaderblick.raspo1926.info` ist dort als Domain eingetragen).
+- `kaderblick-frontend` und `kaderblick-backend` hängen zusätzlich im Netzwerk von SWAG. Es wird in der Kaderblick-Compose als `external` mit seinem tatsächlichen Namen eingebunden (z. B. `server_proxy-net`).
+- SWAG leitet für `kaderblick.raspo1926.info` den Pfad `/api/` an `kaderblick-backend:8080` und alles andere an `kaderblick-frontend` weiter. Frontend und Backend liegen damit unter derselben Domain.
+- `kaderblick-backend` und `kaderblick-kurrentdb` kommunizieren über ein internes Netzwerk (`kaderblick-net`). KurrentDB ist nicht im Netzwerk von SWAG und nach außen nicht erreichbar. Die Oberfläche von KurrentDB ist nur auf `127.0.0.1:2113` des Servers freigegeben und wird bei Bedarf per SSH-Tunnel genutzt.
+- KurrentDB läuft ohne TLS (`KURRENTDB_INSECURE=true`), weil sie nur im internen Netzwerk erreichbar ist, und ohne Projektionen (`KURRENTDB_RUN_PROJECTIONS=None`), weil Kaderblick sie nicht braucht.
+
+**Volumes und Dateien**
+
+| Volume bzw. Datei | Inhalt | Eingebunden in |
+|---|---|---|
+| `kaderblick-kurrentdb-data` | Event Store | `kaderblick-kurrentdb` |
+| `kaderblick-data` | Datenverzeichnis (`DATA_DIR=/data`) | `kaderblick-backend` |
+| `./config/trainers.json` | Trainer-Konfiguration, nur lesend | `kaderblick-backend` |
+| `./.env` | Secrets wie `KADERBLICK_SESSION_KEY` | Compose |
+
+Trainer-Konfiguration und `.env` liegen nur auf dem Server, mit Dateirechten nur für den Betreiber, und werden nie eingecheckt.
 
 ### 8.2 Backups
 
-_TODO_
+Event Store und Datenverzeichnis werden in der Kaderblick-Compose mit zwei getrennten Jobs gesichert (`offen/docker-volume-backup`):
+
+| Job | Inhalt | Zeitplan | Dateiname | Während des Backups gestoppt |
+|---|---|---|---|---|
+| `kaderblick-backup-kurrentdb` | Volume `kaderblick-kurrentdb-data` | täglich 03:17 | `kaderblick-kurrentdb-%Y-%m-%d_%H-%M-%S.tar.gz` | `kaderblick-kurrentdb` |
+| `kaderblick-backup-data` | Volume `kaderblick-data` | täglich 03:17 | `kaderblick-data-%Y-%m-%d_%H-%M-%S.tar.gz` | `kaderblick-backend` |
+
+- Beide Jobs laufen zur selben Zeit, damit Events und Dateien möglichst genau zusammenpassen. Jeder Job räumt nur seine eigenen Archive auf (`BACKUP_PRUNING_PREFIX`).
+- **Aufbewahrung:** 14 Tage. Gelöschte personenbezogene Daten (Spieler, Kommentare, Notizen) sind damit spätestens 14 Tage nach dem Löschen auch aus den Backups verschwunden.
+- Die Archive liegen auf dem Server im Verzeichnis `./backups` der Kaderblick-Compose. Eine Kopie außerhalb des Servers ist nicht vorgesehen.
+- Während der Backups (wenige Sekunden bis Minuten) ist Kaderblick nicht erreichbar; das Frontend zeigt den Hinweis aus „Direkte Kommunikation mit dem Backend“.
+
+**Wiederherstellen**
+
+1. `kaderblick-backend` und `kaderblick-kurrentdb` stoppen.
+2. Beide Volumes aus den Archiven **desselben Tages** zurückspielen.
+3. `kaderblick-kurrentdb` und danach `kaderblick-backend` starten. Das Backend baut die Read-Models beim Start neu auf.
+
+Kleine Abweichungen zwischen Events und Dateien sind unkritisch: Fehlende Dateien werden durch Standardwerte ersetzt (siehe [5.4.6](#546-lesen-bei-fehlenden-daten)), überzählige Spielerprofile räumt der tägliche Aufräumjob auf.
 
 ### 8.3 Migration von Bestandsdaten
 
-_TODO_
+Bestandsdaten stammen aus der Exportdatei der bisherigen Kaderblick-App (z. B. `Kaderblick_Backup_20261110.json`). Ein Import-Skript liest sie einmalig ein.
+
+#### 8.3.1 Aufbau der Exportdatei
+
+```
+{
+  app: "kaderblick", exported: <Zeitpunkt>,
+  db: {
+    version: 1,
+    teams:    [ { id, name, season, league, coach, matchLength, photo } ],
+    players:  [ { id, teamId, first, last, nr, pos, birth, foot, active, notes, photo, crop } ],
+    matches:  [ { id, teamId, type?, date, notes,
+                  md, opp, venue, comp, gf, ga,          (Spieltag, ohne type)
+                  dur, topic, focus } ],                 (Training, type = "training")
+    ratings:  { <matchId>: { <playerId>: { status, min, grade, fair, attrs, goals, assists, saves,
+                                            yel, yr, red, comment } } },
+    current:  <teamId>
+  },
+  images: { <playerId>: <JPEG als Data-URL>, <playerId>_orig: …, <teamId>: … }
+}
+```
+
+Die IDs der alten App sind kurze Zeichenketten. Sie werden nur während des Imports zur Zuordnung genutzt; das neue System vergibt eigene IDs.
+
+#### 8.3.2 Zuordnung der Felder
+
+**Team**
+
+| Alt | Neu |
+|---|---|
+| `name` | Name |
+| `season` (`2026/27`) | Saison `2026_27` |
+| `league` | Spielklasse |
+| `coach` | Trainerangabe (`coaches.txt`), leer = keine |
+| `images[<teamId>]` | Wappen; dasselbe Bild wird als Original und Zuschnitt gespeichert |
+| `matchLength`, `photo` | entfallen (die Standard-Spielzeit ist eine Einstellung des Trainers) |
+
+**Spieler**
+
+| Alt | Neu |
+|---|---|
+| `first`, `last` | Vorname, Name |
+| `birth` (`JJJJ-MM-TT`, evtl. leer) | Geburtsdatum; leer bleibt leer und wird in der App nachgetragen |
+| `foot`: `rechts`, `links`, `beide` | starker Fuß `right`, `left`, `both` |
+| `nr` (Text, evtl. leer) | Rückennummer als Zahl, leer = keine |
+| `pos`: `TW`, `AB`, `MF`, `ST`, leer | Position, leer = keine |
+| `active` | aktiv bzw. inaktiv |
+| `images[<playerId>_orig]`, `images[<playerId>]` | `photo.jpg` (Original) und `photo-cropped.jpg` (Zuschnitt) |
+| `notes` | entfällt; das neue Modell kennt keine Notizen zu Spielern |
+| `crop`, `photo` | entfallen (der Zuschnitt liegt bereits als Bild vor) |
+
+**Spieltage** (Einträge ohne `type`)
+
+| Alt | Neu |
+|---|---|
+| `date` | Datum |
+| `md` | Spieltag-Nummer |
+| `opp` | Gegner |
+| `venue`: `H`, `A`, `N` | Ort `home`, `away`, `neutral` |
+| `comp`: `Liga`, `Pokal`, `Test`, `Turnier` | Wettbewerb `league`, `cup`, `friendly`, `tournament` |
+| `gf`, `ga` | Ergebnis, nur wenn beide gesetzt |
+| `notes` | Notiz, leer = keine |
+
+**Trainings** (`type = "training"`)
+
+| Alt | Neu |
+|---|---|
+| `date`, `dur`, `topic` | Datum, Dauer, Thema |
+| `focus` (deutsche Namen) | Schwerpunkte, z. B. `Technik` → `technique`, `Taktik` → `tactics`, `Spielform` → `smallSidedGames` (siehe [6.2.6](#626-feldwerte)) |
+| `notes` | Notiz, leer = keine |
+
+**Bewertungen** (`ratings[<terminId>][<spielerId>]`)
+
+| Alt | Neu |
+|---|---|
+| `status` bei Spieltagen: `start`, `sub`, `out` | Einsatz `starting`, `substitute`, `absent` |
+| `status` bei Trainings: `present`, `late`, `excused`, `absent` | Anwesenheit `present`, `late`, `excused`, `unexcused` |
+| `min` (Text, evtl. leer) | gespielte Minuten, leer = nicht erfasst |
+| `grade`, `fair` (`null` = nicht erfasst) | Leistungsnote, Fairness |
+| `attrs`: `eff`, `tech`, `iq`, `duel`, `team` | Eigenschaften `effort`, `technique`, `gameIntelligence`, `duels`, `teamSpirit`; fehlende Schlüssel = nicht erfasst |
+| `goals`, `assists`, `saves` | Tore, Vorlagen, Paraden; nur Spieltage, `0` wird nicht als Event übernommen |
+| `yel`, `yr`, `red` | Karten Gelb, Gelb-Rot, Rot; nur Spieltage, nur `true` wird übernommen |
+| `comment` | Kommentar, leer = keiner |
+
+Leistungswerte werden nur übernommen, wenn die Leistung zählt (Startelf, Eingewechselt, Anwesend, Verspätet). Werte bei anderen Status sowie Tore, Karten usw. bei Trainings werden verworfen.
+
+`current` (aktives Team der alten App) entfällt; jeder Trainer wählt nach dem Import sein aktives Team selbst bzw. erhält das nächste verfügbare (siehe [4.1.2](#412-aktives-team-nach-der-anmeldung)).
+
+#### 8.3.3 Ablauf
+
+1. Die Exportdatei in den Backend-Container kopieren, z. B. `docker cp Kaderblick_Backup_20261110.json kaderblick-backend:/tmp/`.
+2. Das Import-Skript starten: `docker exec kaderblick-backend node cli/import.js /tmp/Kaderblick_Backup_20261110.json`.
+3. Das Skript prüft die ganze Datei mit einem Zod-Schema (`app = "kaderblick"`, `version = 1`, Felder und Werte wie oben). Bei Fehlern bricht es ab, ohne etwas zu schreiben, und nennt die fehlerhaften Stellen ohne personenbezogene Inhalte.
+4. Gibt es für ein Team der Datei bereits ein nicht gelöschtes Team mit gleichem Namen und gleicher Saison, bricht das Skript vor dem Schreiben ab. So kann eine Datei nicht versehentlich doppelt importiert werden.
+5. Je Team:
+   1. neue `teamId` vergeben (siehe [5.1.3](#513-vergabe-der-team-nummer)), `Team.create` und `TeamCreated` speichern;
+   2. Wappen und Trainerangabe als Dateien schreiben;
+   3. für jeden Spieler eine neue `playerId` vergeben, Profil und Fotos schreiben;
+   4. über die normalen Geschäftsmethoden Kader, Spieltage, Trainings und Bewertungen erzeugen (`addPlayer`, `scheduleMatch`, `recordResult`, `scheduleTraining`, `recordParticipation`, `recordAttendance`, `gradeMatchPerformance`, …) und Notizen bzw. Kommentare zuerst als Dateien schreiben. Spieler mit `active = false` werden erst danach inaktiv gesetzt, weil inaktive Spieler nicht bewertet werden können;
+   5. alle Events des Teams in einem Schreibvorgang speichern.
+6. Verstößt ein Datensatz gegen eine Regel aus [5.2](#52-invarianten-und-regeln) (z. B. Note außerhalb des Bereichs), bricht der Import des Teams ab und nennt Termin- und Spieler-ID der alten App.
+7. Am Ende nennt das Skript je Team die neue `teamId` und die Anzahl importierter Spieler, Spieltage, Trainings und Bewertungen.
+8. Die Exportdatei im Container und überall sonst löschen: Sie enthält personenbezogene Daten.
+
+Schlägt der Import eines Teams nach Schritt 5.1 fehl, wird das unvollständige Team in der App gelöscht und die Datei nach Korrektur erneut importiert. Verwaiste Dateien räumen die Aufräumjobs auf.
 
 ### 8.4 Spieler auf Anfrage löschen
 
-_TODO: Wie der Betreiber einen Spieler findet und löscht (Umfang siehe [5.4.4](#544-löschen))._
+Verlangt eine Person die Löschung ihrer Daten (DSGVO), entfernt ein Admin sie von Hand auf dem Server. Die App bietet dafür keine Funktion (siehe [4.2.5](#425-spieler-endgültig-löschen)).
+
+#### 8.4.1 Was gelöscht wird und was bleibt
+
+| Gelöscht | Bleibt |
+|---|---|
+| `player/{playerId}/` mit `profile.json`, `photo.jpg` und `photo-cropped.jpg` | Events in KurrentDB (enthalten nur die `playerId`) |
+| `comments/{playerId}.txt` in allen Spieltagen und Trainings aller Teams | Kaderzugehörigkeit, Rückennummer, Position |
+| Erwähnungen in Notizen zu Spieltagen und Trainings (von Hand bereinigt) | Zahlenwerte der Bewertungen (Noten, Tore, Anwesenheit …), ohne Bezug zur Person |
+
+Danach erscheint der Spieler in allen Teams als „Gelöschter Spieler“ ohne Foto und Kommentare (siehe [5.4.6](#546-lesen-bei-fehlenden-daten)), und die Spielersuche findet ihn nicht mehr. Ein Neustart des Backends ist nicht nötig, weil Profile und Kommentare erst beim Ausliefern aus den Dateien gelesen werden.
+
+#### 8.4.2 Voraussetzungen
+
+- SSH-Zugang zum Server mit dem Recht, Docker-Befehle auszuführen.
+- Vor- und Nachname der Person, möglichst auch das Geburtsdatum, um Namensgleichheiten auszuschließen.
+- Die Anfrage ist schriftlich festgehalten (wer, wann, über welchen Weg).
+
+#### 8.4.3 Ablauf
+
+1. **Am Server anmelden** und eine Shell im Backend-Container öffnen. Das Backend läuft dabei weiter.
+
+   ```sh
+   ssh <server>
+   docker exec -it kaderblick-backend sh
+   cd /data
+   ```
+
+2. **Spieler finden.** Die Suche ignoriert Groß- und Kleinschreibung; der Verzeichnisname eines Treffers ist die `playerId`.
+
+   ```sh
+   grep -il "Nachname" player/*/profile.json
+   ```
+
+   Für jeden Treffer das Profil anzeigen und Vorname, Name und Geburtsdatum vergleichen:
+
+   ```sh
+   cat player/<playerId>/profile.json
+   ```
+
+   Gibt es keinen Treffer, mit einem Teil des Namens oder dem Vornamen erneut suchen. Bleibt die Suche erfolglos, wurde das Profil bereits gelöscht (z. B. vom täglichen Aufräumjob, weil der Spieler in keinem Team mehr war); dann weiter mit Schritt 4.
+
+3. **Umfang prüfen.** Anzeigen, welche Dateien gelöscht werden:
+
+   ```sh
+   ls -l player/<playerId>
+   find team -path "*/comments/<playerId>.txt"
+   ```
+
+4. **Notizen prüfen.** Notizen zu Spieltagen und Trainings können die Person erwähnen. Mit Vor- und Nachnamen suchen:
+
+   ```sh
+   find team -name notes.txt -exec grep -il "Nachname" {} +
+   find team -name notes.txt -exec grep -il "Vorname" {} +
+   ```
+
+   Jeden Treffer öffnen (`vi <datei>`) und nur die Stellen über die Person entfernen. Betrifft die Notiz ausschließlich diese Person, kann die Datei ganz gelöscht werden; die App zeigt die Notiz dann als leer an.
+
+5. **Löschen.**
+
+   ```sh
+   rm -r player/<playerId>
+   find team -path "*/comments/<playerId>.txt" -delete
+   ```
+
+6. **Kontrollieren.** Alle drei Befehle dürfen nichts mehr ausgeben (außer Treffern zu anderen Personen mit gleichem Namen):
+
+   ```sh
+   ls player/<playerId>
+   find team -path "*/comments/<playerId>.txt"
+   grep -ril "Nachname" player team
+   ```
+
+   Danach die Shell mit `exit` verlassen.
+
+7. **Dokumentieren.** Datum, `playerId` und Bezug zur Anfrage festhalten, ohne Namen der Person.
+
+8. **Trainer informieren.** Die Trainer der betroffenen Teams sehen den Spieler danach als „Gelöschter Spieler“. Wer ihn nicht mehr im Kader sehen möchte, entfernt ihn dort (siehe [4.2.4](#424-aus-dem-kader-entfernen)).
+
+#### 8.4.4 Hinweise
+
+- **Backups:** Die Daten bleiben in den Backups der letzten 14 Tage enthalten und verschwinden mit deren turnusmäßiger Löschung (siehe [8.2](#82-backups)). Wird in dieser Zeit ein Backup zurückgespielt, muss die Löschung danach wiederholt werden; deshalb wird sie dokumentiert.
+- **Daten außerhalb von Kaderblick:** Exportierte CSV-Dateien und geteilte Saisonbilanzen liegen bei den Trainern. Sie werden gebeten, solche Dateien ebenfalls zu löschen.
+- **Erneutes Anlegen:** Wird die Person später wieder einem Kader hinzugefügt, wird sie als neuer Spieler mit neuer `playerId` angelegt.
+
+### 8.5 Wiederkehrende Jobs
+
+Die Jobs laufen im Backend-Prozess. Zeitpunkte liegen außerhalb der Backup-Zeit.
+
+| Job | Zeitplan | Aufgabe |
+|---|---|---|
+| Verwaiste Spieler | täglich 04:00 | löscht Spielerprofile ohne Team (siehe [5.4.5](#545-aufräumjob-für-spieler)) und holt fehlgeschlagene Dateilöschungen nach |
+| Verwaiste Streams | 04:30 am 1. Tag jedes zweiten Monats | löscht die Streams von Teams, deren `TeamDeleted` älter als 30 Tage ist, endgültig (Tombstone) und startet danach einen Scavenge |
+
+**Scavenge**
+
+- Der Job startet den Scavenge nur, wenn er mindestens einen Stream gelöscht hat, über die HTTP-Admin-Schnittstelle von KurrentDB (`POST /admin/scavenge` an `KADERBLICK_KURRENTDB_HTTP_URL`, z. B. `http://kaderblick-kurrentdb:2113`).
+- Der Scavenge läuft im Hintergrund der Kaderblick-eigenen KurrentDB und gibt den Speicherplatz der gelöschten Events frei; Kaderblick bleibt währenddessen nutzbar.
+- Start und Ergebnis werden protokolliert (nur mit `teamId`s). Schlägt der Start fehl, wird das protokolliert; die Streams sind trotzdem gelöscht, und der Betreiber kann den Scavenge in der Oberfläche von KurrentDB nachholen.
 
 ## 9. Offene Punkte
 
-
-- Keine. Weitere offene Punkte ergeben sich beim Ausarbeiten der Abschnitte mit _TODO_.
+Keine. Neue offene Punkte, die bei der Umsetzung entstehen, werden hier gesammelt.
