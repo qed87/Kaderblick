@@ -1209,6 +1209,16 @@ Fehler werden als Problem Details nach RFC 9457 geliefert (`Content-Type: applic
 | `errors` | nur bei `ValidationError`: Liste aus `{ field, message }` |
 | `currentValue` | nur bei `EditConflict`: aktueller Wert des Feldes |
 
+Fehler außerhalb der Fachlogik:
+
+| Fall | Antwort |
+|---|---|
+| unbekannter Endpunkt | `404 NotFound` |
+| ungültiges JSON im Body | `400 ValidationError` mit leerem `errors` |
+| Anfrage zu groß | `413 PayloadTooLarge` |
+| Content-Type nicht unterstützt | `415 UnsupportedMediaType` |
+| unerwarteter Fehler | `500 InternalError` |
+
 Fehlerantworten enthalten nie personenbezogene Daten, Stacktraces oder interne Details. Das Frontend zeigt eigene Meldungen an (siehe Fehlertabellen in [4](#4-fachliche-funktionen)) und nutzt dafür `type`.
 
 #### 6.1.6 Statuscodes
@@ -1360,9 +1370,9 @@ Push-Benachrichtigungen (Server-Sent Events oder WebSockets) sind vorerst nicht 
 | Variable | Bedeutung |
 |---|---|
 | `KADERBLICK_TRAINERS_FILE` | Pfad zur Trainer-Konfiguration (JSON). Die Datei liegt außerhalb des Repositorys und wird nie eingecheckt. |
-| `KADERBLICK_SESSION_KEY` | Schlüssel zum Signieren und Verschlüsseln des Session-Cookies. |
+| `KADERBLICK_SESSION_KEY` | Schlüssel zum Signieren und Verschlüsseln des Session-Cookies: 64 Hex-Zeichen (32 Byte), erzeugt z. B. mit `openssl rand -hex 32`. |
 
-Aufbau der Trainer-Konfiguration (siehe [Begriffe](#2-begriffe)). Die Zugangsschlüssel stehen bewusst im Klartext in der Datei; sie ist deshalb mit restriktiven Dateirechten zu schützen.
+Aufbau der Trainer-Konfiguration (siehe [Begriffe](#2-begriffe)). Die Schlüssel unter `Trainer` sind die Trainer-IDs und müssen gültige E-Mail-Adressen sein. Die Zugangsschlüssel stehen bewusst im Klartext in der Datei; sie ist deshalb mit restriktiven Dateirechten zu schützen.
 
 ```json
 {
@@ -1385,6 +1395,7 @@ Weitere Umgebungsvariablen:
 | `PORT` | Port des HTTP-Servers | `8080` |
 | `TRUST_PROXY` | `true`, wenn das Backend hinter einem Reverse Proxy läuft (für die IP-Adresse beim Rate-Limit) | `false` |
 | `LOG_LEVEL` | Pino-Log-Level | `info` |
+| `NODE_ENV` | `development`, `production` oder `test`; nur bei `development` sind Swagger UI und OpenAPI-Dokument unter `/api/v1/docs` erreichbar | `production` |
 
 Alle Variablen werden beim Start mit einem Zod-Schema geprüft; bei ungültiger Konfiguration bricht der Start mit einer klaren Fehlermeldung ab.
 
@@ -1652,13 +1663,4 @@ Die Jobs laufen im Backend-Prozess. Zeitpunkte liegen außerhalb der Backup-Zeit
 
 ## 9. Offene Punkte
 
-Neue offene Punkte, die bei der Umsetzung entstehen, werden hier gesammelt.
-
-Aus Schritt 1 (Projektgerüst), umgesetzt als Eigenannahme, zu bestätigen:
-
-| Punkt | Annahme |
-|---|---|
-| Format von `KADERBLICK_SESSION_KEY` | 64 Hex-Zeichen (32 Byte), erzeugt z. B. mit `openssl rand -hex 32`. `@fastify/secure-session` nutzt ihn direkt als Schlüssel. |
-| Entwicklungsmodus | Zusätzliche Variable `NODE_ENV` (`development`, `production`, `test`; Standard `production`). Swagger UI und OpenAPI-Dokument gibt es nur bei `development`, unter `/api/v1/docs`. |
-| Unbekannte Endpunkte | `404` mit `type` `NotFound`. Von Fastify selbst erkannte Fehler: ungültiges JSON als `400 ValidationError` mit leerem `errors`, `413 PayloadTooLarge`, `415 UnsupportedMediaType`; unerwartete Fehler als `500 InternalError`. |
-| Trainer-ID | Die Schlüssel unter `Trainer` müssen gültige E-Mail-Adressen sein, sonst bricht der Start ab. |
+Keine. Neue offene Punkte, die bei der Umsetzung entstehen, werden hier gesammelt.
