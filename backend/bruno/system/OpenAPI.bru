@@ -1,0 +1,23 @@
+meta {
+  name: OpenAPI
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/docs/json
+  body: none
+  auth: none
+}
+
+docs {
+  OpenAPI-Dokument, nur mit NODE_ENV=development erreichbar (sonst 404).
+  Swagger UI im Browser: {{baseUrl}}/docs
+}
+
+tests {
+  test("antwortet mit 200 und OpenAPI 3", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().openapi).to.match(/^3\./);
+  });
+}

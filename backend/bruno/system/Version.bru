@@ -1,0 +1,26 @@
+meta {
+  name: Version
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/version
+  body: none
+  auth: none
+}
+
+docs {
+  Version des Backends, ohne Anmeldung (Spezifikation 6.2.1).
+}
+
+tests {
+  test("antwortet mit 200 und Version", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().version).to.be.a("string");
+  });
+
+  test("setzt Cache-Control: no-store", function () {
+    expect(res.getHeader("cache-control")).to.equal("no-store");
+  });
+}
