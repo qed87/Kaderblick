@@ -9,7 +9,18 @@ import { playerIdSchema, teamIdSchema } from '../schemas/ids.ts';
 // Tatsache und muss sich immer lesen lassen, auch wenn sich Regeln wie das Saisonformat ändern.
 // Die Regeln prüfen die Geschäftsmethoden, bevor ein Event entsteht.
 
-function event<const Type extends string, Data extends z.ZodObject>(type: Type, data: Data) {
+/**
+ * Baut das Schema eines Events in der einheitlichen Form `{ type, data }`.
+ *
+ * Die Typparameter halten die genauen Typen fest, damit `z.infer` sie später kennt:
+ * - `Type extends string`: Für einen Typparameter, der auf `string` beschränkt ist, leitet
+ *   TypeScript aus einem String-Argument den Literaltyp ab, also `'TeamCreated'` statt `string`.
+ *   Nur so entsteht über `type` eine Discriminated Union, in der `switch (event.type)` den Typ
+ *   von `data` eingrenzt.
+ * - `Data extends z.ZodObject`: behält das konkrete Schema des Payloads; mit `data: z.ZodObject`
+ *   als Parametertyp gingen die einzelnen Felder verloren.
+ */
+function event<Type extends string, Data extends z.ZodObject>(type: Type, data: Data) {
   return z.object({ type: z.literal(type), data });
 }
 
