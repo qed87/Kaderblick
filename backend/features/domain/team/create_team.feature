@@ -1,4 +1,3 @@
-@wip
 Feature: Create a team
   A team is created once with a name, a season and an optional tier.
   The name must not be empty and the season has the format YYYY_YY,

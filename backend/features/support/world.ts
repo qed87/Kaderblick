@@ -1,40 +1,34 @@
-import { After, Before, setWorldConstructor, World } from '@cucumber/cucumber';
+import { After, setWorldConstructor, World } from '@cucumber/cucumber';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { buildTestApp } from '../../test/helpers/app.ts';
+import { TeamScenario } from './teamScenario.ts';
 
-/** Gemeinsamer Zustand eines Szenarios: die App und die letzte Antwort. */
+/**
+ * Gemeinsamer Zustand eines Szenarios. Domänen-Szenarien nutzen `team`; API-Szenarien die App,
+ * die erst bei der ersten Anfrage gestartet wird.
+ */
 export class KaderblickWorld extends World {
+  readonly team = new TeamScenario();
+
   #app: FastifyInstance | undefined;
   #response: LightMyRequestResponse | undefined;
-
-  get app(): FastifyInstance {
-    if (!this.#app) throw new Error('Die App ist nicht gestartet.');
-    return this.#app;
-  }
 
   get response(): LightMyRequestResponse {
     if (!this.#response) throw new Error('Es wurde noch keine Anfrage gestellt.');
     return this.#response;
   }
 
-  async start(): Promise<void> {
-    this.#app = await buildTestApp();
+  async request(method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string): Promise<void> {
+    this.#app ??= await buildTestApp();
+    this.#response = await this.#app.inject({ method, url });
   }
 
   async stop(): Promise<void> {
     await this.#app?.close();
   }
-
-  async request(method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string): Promise<void> {
-    this.#response = await this.app.inject({ method, url });
-  }
 }
 
 setWorldConstructor(KaderblickWorld);
-
-Before(async function (this: KaderblickWorld) {
-  await this.start();
-});
 
 After(async function (this: KaderblickWorld) {
   await this.stop();

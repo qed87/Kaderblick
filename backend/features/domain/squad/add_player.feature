@@ -1,4 +1,3 @@
-@wip
 Feature: Add a player to the squad
   A player is added by playerId, optionally with shirt number and position.
   A player is at most once in the squad of a team (rule 3), but may be in the

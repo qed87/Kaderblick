@@ -1,4 +1,3 @@
-@wip
 Feature: Edit a squad player
   Shirt number, position and active state of a squad player are changed field
   by field. Only players in the squad can be changed (rule 3). A change to the

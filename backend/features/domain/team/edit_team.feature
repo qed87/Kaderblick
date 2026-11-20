@@ -1,4 +1,3 @@
-@wip
 Feature: Edit a team
   Name, season, tier, crest and coaches of a team can be changed field by field.
   The same rules as for creating apply (rule 2). A change to the current value

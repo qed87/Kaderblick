@@ -1,4 +1,3 @@
-@wip
 Feature: Delete a team
   A deleted team stays in the event store, but no further changes are
   possible: every business method is rejected with TeamDeleted (rule 1).
