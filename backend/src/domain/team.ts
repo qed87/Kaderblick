@@ -132,10 +132,10 @@ export class Team {
     });
   }
 
+  /** Erneutes Löschen eines gelöschten Teams ist keine Änderung (Regel 1). */
   delete(): Result<void, DomainError> {
-    return this.#ensureNotDeleted().map(() => {
-      this.#raise({ type: 'TeamDeleted', data: {} });
-    });
+    if (!this.#state.deleted) this.#raise({ type: 'TeamDeleted', data: {} });
+    return ok(undefined);
   }
 
   // 5.3.2 Kader
