@@ -1,4 +1,3 @@
-@wip
 Feature: Appointments
   Matches and trainings are appointments. They share date, notes and deletion.
   Ratings only exist for appointments that exist and are not deleted (rule 5).

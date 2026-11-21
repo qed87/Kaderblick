@@ -1,4 +1,3 @@
-@wip
 Feature: Matches
   A match has a date and optionally matchday, opponent, venue, competition and
   result. The matchday is a whole number of at least 1, the goals of the result

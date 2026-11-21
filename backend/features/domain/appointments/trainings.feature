@@ -1,4 +1,3 @@
-@wip
 Feature: Trainings
   A training has a date, a duration in minutes, an optional topic and a list
   of focus areas. The duration is a whole number from 1 to 600 minutes (rule 8).
