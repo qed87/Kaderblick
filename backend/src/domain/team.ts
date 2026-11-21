@@ -1,6 +1,7 @@
 import { err, ok, type Result } from 'neverthrow';
-import { type Position, seasonSchema } from '../schemas/fieldValues.ts';
-import type { PlayerId, TeamId } from '../schemas/ids.ts';
+import { type Competition, type Focus, type Position, seasonSchema, type Venue } from '../schemas/fieldValues.ts';
+import type { AppointmentId, PlayerId, TeamId } from '../schemas/ids.ts';
+import { type Appointment, type Decision, Match, type ScheduleMatch, type ScheduleTraining, Training } from './appointment.ts';
 import type { DomainError } from './errors.ts';
 import type { TeamEvent } from './events.ts';
 
@@ -18,6 +19,8 @@ type TeamState = {
   hasCoaches: boolean;
   deleted: boolean;
   squad: Map<PlayerId, SquadPlayer>;
+  /** Nur bestehende Termine; gelöschte werden nicht weiter geführt (Regel 10). */
+  appointments: Map<AppointmentId, Appointment>;
 };
 
 export type CreateTeam = { teamId: TeamId; name: string; season: string; tier: string | null };
@@ -48,6 +51,7 @@ export class Team {
     hasCoaches: false,
     deleted: false,
     squad: new Map(),
+    appointments: new Map(),
   };
 
   #pendingEvents: TeamEvent[] = [];
@@ -132,10 +136,10 @@ export class Team {
     });
   }
 
+  /** Erneutes Löschen eines gelöschten Teams ist keine Änderung (Regel 1). */
   delete(): Result<void, DomainError> {
-    return this.#ensureNotDeleted().map(() => {
-      this.#raise({ type: 'TeamDeleted', data: {} });
-    });
+    if (!this.#state.deleted) this.#raise({ type: 'TeamDeleted', data: {} });
+    return ok(undefined);
   }
 
   // 5.3.2 Kader
@@ -208,6 +212,99 @@ export class Team {
     });
   }
 
+  // 5.3.3 Termine (gemeinsam)
+
+  rescheduleAppointment(appointmentId: AppointmentId, date: string): Result<void, DomainError> {
+    return this.#change(this.#appointment(appointmentId), (appointment) => appointment.reschedule(date));
+  }
+
+  writeAppointmentNotes(appointmentId: AppointmentId): Result<void, DomainError> {
+    return this.#change(this.#appointment(appointmentId), (appointment) => appointment.writeNotes());
+  }
+
+  removeAppointmentNotes(appointmentId: AppointmentId): Result<void, DomainError> {
+    return this.#change(this.#appointment(appointmentId), (appointment) => appointment.removeNotes());
+  }
+
+  deleteAppointment(appointmentId: AppointmentId): Result<void, DomainError> {
+    return this.#appointment(appointmentId).map(() => {
+      this.#raise({ type: 'AppointmentDeleted', data: { appointmentId } });
+    });
+  }
+
+  // 5.3.4 Spieltage
+
+  scheduleMatch(input: ScheduleMatch): Result<void, DomainError> {
+    return this.#ensureIdFree(input.matchId)
+      .andThen(() => Match.schedule(input))
+      .map((data) => {
+        this.#raise({ type: 'MatchScheduled', data });
+      });
+  }
+
+  changeMatchday(matchId: AppointmentId, matchday: number): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.changeMatchday(matchday));
+  }
+
+  removeMatchday(matchId: AppointmentId): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.removeMatchday());
+  }
+
+  changeOpponent(matchId: AppointmentId, opponent: string): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.changeOpponent(opponent));
+  }
+
+  removeOpponent(matchId: AppointmentId): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.removeOpponent());
+  }
+
+  changeVenue(matchId: AppointmentId, venue: Venue): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.changeVenue(venue));
+  }
+
+  removeVenue(matchId: AppointmentId): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.removeVenue());
+  }
+
+  changeCompetition(matchId: AppointmentId, competition: Competition): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.changeCompetition(competition));
+  }
+
+  removeCompetition(matchId: AppointmentId): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.removeCompetition());
+  }
+
+  recordResult(matchId: AppointmentId, goalsFor: number, goalsAgainst: number): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.recordResult(goalsFor, goalsAgainst));
+  }
+
+  clearResult(matchId: AppointmentId): Result<void, DomainError> {
+    return this.#change(this.#match(matchId), (match) => match.clearResult());
+  }
+
+  // 5.3.5 Trainings
+
+  scheduleTraining(input: ScheduleTraining): Result<void, DomainError> {
+    return this.#ensureIdFree(input.trainingId)
+      .andThen(() => Training.schedule(input))
+      .map((data) => {
+        this.#raise({ type: 'TrainingScheduled', data });
+      });
+  }
+
+  changeTrainingDuration(trainingId: AppointmentId, minutes: number): Result<void, DomainError> {
+    return this.#change(this.#training(trainingId), (training) => training.changeDuration(minutes));
+  }
+
+  /** `null` oder ein leeres Thema entfernt das Thema. */
+  changeTrainingTopic(trainingId: AppointmentId, topic: string | null): Result<void, DomainError> {
+    return this.#change(this.#training(trainingId), (training) => training.changeTopic(topic));
+  }
+
+  changeTrainingFocus(trainingId: AppointmentId, focus: Focus): Result<void, DomainError> {
+    return this.#change(this.#training(trainingId), (training) => training.changeFocus(focus));
+  }
+
   // Prüfungen
 
   /** Regel 1: Auf ein gelöschtes Team wird keine Geschäftsmethode mehr angewendet. */
@@ -220,6 +317,51 @@ export class Team {
     return this.#ensureNotDeleted().andThen(() => {
       const player = this.#state.squad.get(playerId);
       return player ? ok(player) : err({ type: 'PlayerNotInSquad', playerId } as const);
+    });
+  }
+
+  /** Regel 5: Eine Termin-ID ist unter den bestehenden Terminen eindeutig. */
+  #ensureIdFree(appointmentId: AppointmentId): Result<void, DomainError> {
+    return this.#ensureNotDeleted().andThen(() =>
+      this.#state.appointments.has(appointmentId)
+        ? err({ type: 'IdAlreadyUsed', appointmentId } as const)
+        : ok(undefined),
+    );
+  }
+
+  /** Regel 5: Nur bestehende Termine können geändert werden. */
+  #appointment(appointmentId: AppointmentId): Result<Appointment, DomainError> {
+    return this.#ensureNotDeleted().andThen(() => {
+      const appointment = this.#state.appointments.get(appointmentId);
+      return appointment ? ok(appointment) : err({ type: 'AppointmentNotFound', appointmentId } as const);
+    });
+  }
+
+  /** Spieltag-Methoden lehnen die ID eines Trainings wie eine unbekannte ID ab (5.3.4). */
+  #match(matchId: AppointmentId): Result<Match, DomainError> {
+    return this.#appointment(matchId).andThen((appointment) =>
+      appointment instanceof Match
+        ? ok(appointment)
+        : err({ type: 'AppointmentNotFound', appointmentId: matchId } as const),
+    );
+  }
+
+  /** Trainings-Methoden lehnen die ID eines Spieltags wie eine unbekannte ID ab (5.3.5). */
+  #training(trainingId: AppointmentId): Result<Training, DomainError> {
+    return this.#appointment(trainingId).andThen((appointment) =>
+      appointment instanceof Training
+        ? ok(appointment)
+        : err({ type: 'AppointmentNotFound', appointmentId: trainingId } as const),
+    );
+  }
+
+  /** Lässt einen Termin über die Änderung entscheiden und erzeugt das Event, falls es eines gibt. */
+  #change<Target>(
+    target: Result<Target, DomainError>,
+    decide: (target: Target) => Decision<TeamEvent>,
+  ): Result<void, DomainError> {
+    return target.andThen(decide).map((event) => {
+      if (event) this.#raise(event);
     });
   }
 
@@ -293,6 +435,34 @@ export class Team {
         break;
       case 'PlayerProfileChanged':
         // Nur ein Hinweis auf die geänderte Profildatei; der Zustand ändert sich nicht.
+        break;
+      case 'MatchScheduled':
+        state.appointments.set(event.data.appointmentId, new Match(event.data));
+        break;
+      case 'TrainingScheduled':
+        state.appointments.set(event.data.appointmentId, new Training(event.data));
+        break;
+      case 'AppointmentDeleted':
+        state.appointments.delete(event.data.appointmentId);
+        break;
+      case 'AppointmentRescheduled':
+      case 'AppointmentNotesWritten':
+      case 'AppointmentNotesRemoved':
+      case 'MatchdayChanged':
+      case 'MatchdayRemoved':
+      case 'OpponentChanged':
+      case 'OpponentRemoved':
+      case 'VenueChanged':
+      case 'VenueRemoved':
+      case 'CompetitionChanged':
+      case 'CompetitionRemoved':
+      case 'MatchResultRecorded':
+      case 'MatchResultCleared':
+      case 'TrainingDurationChanged':
+      case 'TrainingTopicChanged':
+      case 'TrainingFocusChanged':
+        // Ein Event zu einem Termin, der nicht (mehr) besteht, ändert nichts.
+        state.appointments.get(event.data.appointmentId)?.apply(event);
         break;
       default:
         event satisfies never;
