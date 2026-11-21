@@ -1,7 +1,7 @@
 @wip
 Feature: Trainings
   A training has a date, a duration in minutes, an optional topic and a list
-  of focus areas. The duration is a whole number of at least 0 (rule 8).
+  of focus areas. The duration is a whole number from 1 to 600 minutes (rule 8).
   Training methods reject the ID of a match with AppointmentNotFound. A change
   to the current value records nothing (rule 12).
 
@@ -52,13 +52,24 @@ Feature: Trainings
         | event             | appointmentId | date       | duration | topic | focus            |
         | TrainingScheduled | T1            | 2026-09-15 | 90       |       | tactics, fitness |
 
+    Scenario Outline: A duration from 1 to 600 minutes is accepted
+      When training "T1" is scheduled on "2026-09-15" with duration <duration>
+      Then the training is scheduled
+
+      Examples:
+        | duration |
+        | 1        |
+        | 600      |
+
     Scenario Outline: An invalid duration is rejected
       When training "T1" is scheduled on "2026-09-15" with duration <duration>
       Then it is rejected with "InvalidValue"
 
       Examples:
         | duration |
+        | 0        |
         | -1       |
+        | 601      |
         | 1.5      |
 
   Rule: Edit a training
@@ -74,9 +85,14 @@ Feature: Trainings
         | event                   | appointmentId | minutes |
         | TrainingDurationChanged | T1            | 75      |
 
-    Scenario: An invalid duration is rejected when changing
-      When the duration of "T1" is changed to -1
+    Scenario Outline: An invalid duration is rejected when changing
+      When the duration of "T1" is changed to <duration>
       Then it is rejected with "InvalidValue"
+
+      Examples:
+        | duration |
+        | 0        |
+        | 601      |
 
     Scenario: Change the topic
       When the topic of "T1" is changed to "Spieleröffnung"

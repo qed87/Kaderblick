@@ -3,8 +3,9 @@ Feature: Appointments
   Matches and trainings are appointments. They share date, notes and deletion.
   Ratings only exist for appointments that exist and are not deleted (rule 5).
   An appointment ID is used only once within a team, even after the
-  appointment was deleted. A deleted appointment can no longer be changed
-  (rule 10). A change to the current value records nothing (rule 12).
+  appointment was deleted. A deleted appointment can no longer be changed;
+  deleting it again records nothing (rule 10). A change to the current value
+  records nothing (rule 12).
   Notes are stored as a file; the team only records that they changed.
 
   Names like "M1" and "T1" stand for the ID of an appointment.
@@ -75,6 +76,16 @@ Feature: Appointments
         | M1          |
         | T1          |
 
+    Scenario Outline: Deleting a deleted appointment again records nothing
+      Given "<appointment>" has been deleted
+      When "<appointment>" is deleted
+      Then nothing is recorded
+
+      Examples:
+        | appointment |
+        | M1          |
+        | T1          |
+
     Scenario Outline: A deleted appointment cannot be changed
       Given "<appointment>" has been deleted
       When <action>
@@ -85,11 +96,9 @@ Feature: Appointments
         | M1          | "M1" is rescheduled to "2026-09-20"          |
         | M1          | notes are written for "M1"                   |
         | M1          | the notes of "M1" are removed                |
-        | M1          | "M1" is deleted                              |
         | M1          | the matchday of "M1" is changed to 3         |
         | M1          | the result of "M1" is recorded as 2:1        |
         | T1          | "T1" is rescheduled to "2026-09-20"          |
-        | T1          | "T1" is deleted                              |
         | T1          | the duration of "T1" is changed to 75        |
         | T1          | the topic of "T1" is changed to "Pressing"   |
 
