@@ -801,7 +801,7 @@ Nummern werden nicht wiederverwendet: Der Aufräumjob löscht verwaiste Streams 
 
 Alle Regeln werden in der Klasse `Team` durchgesetzt. Die Zod-Schemas der Routen prüfen Formate zusätzlich am Eingang, maßgeblich sind aber die Regeln im Aggregate.
 
-1. **Lebenszyklus:** Ein Team wird genau einmal über `Team.create(...)` angelegt. Nach `TeamDeleted` lehnt jede Geschäftsmethode mit `TeamDeleted` ab.
+1. **Lebenszyklus:** Ein Team wird genau einmal über `Team.create(...)` angelegt. Nach `TeamDeleted` lehnt jede Geschäftsmethode mit `TeamDeleted` ab; nur ein erneutes Löschen liefert `Ok` ohne Event.
 2. **Teamdaten:** Der Name ist nach Entfernen von Leerzeichen am Rand mindestens 1 Zeichen lang. Die Saison hat das Format `JJJJ_JJ`, wobei `JJ` die letzten beiden Ziffern von `JJJJ + 1` sind (z. B. `2026_27`, `2099_00`).
 3. **Kader:** Ein Spieler ist höchstens einmal im Kader eines Teams (sonst `PlayerAlreadyInSquad`); in mehreren Teams darf er stehen. Nur Kaderspieler können bearbeitet und bewertet werden: Alle Methoden mit einer `playerId` außer `addPlayer` (Rückennummer, Position, Deaktivieren, Entfernen, alle Bewertungswerte) lehnen sonst mit `PlayerNotInSquad` ab. Doppelte Rückennummern sind erlaubt; das Frontend zeigt nur einen Hinweis.
 4. **Inaktive Spieler:** Für inaktive Spieler können keine Bewertungswerte erfasst oder geändert werden. Bereits erfasste Werte bleiben erhalten.
