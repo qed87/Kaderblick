@@ -1,4 +1,3 @@
-@wip
 Feature: Match ratings
   A match rating records the participation (starting, substitute, absent) and,
   for players who take part, goals, assists, saves and cards. Setting a player

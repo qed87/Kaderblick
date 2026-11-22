@@ -36,6 +36,10 @@ export type FocusArea = z.infer<typeof focusAreaSchema>;
 export const focusSchema = z.array(focusAreaSchema);
 export type Focus = z.infer<typeof focusSchema>;
 
+/** Eigenschaften einer Bewertung, je 0–5 Sterne (Regel 8 in 5.2). */
+export const attributeSchema = z.enum(['effort', 'technique', 'gameIntelligence', 'duels', 'teamSpirit']);
+export type Attribute = z.infer<typeof attributeSchema>;
+
 /** Kartenarten einer Spielbewertung (5.3.7). */
 export const cardSchema = z.enum(['yellow', 'yellowRed', 'red']);
 export type Card = z.infer<typeof cardSchema>;

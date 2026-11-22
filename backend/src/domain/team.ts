@@ -1,7 +1,17 @@
-import { err, ok, type Result } from 'neverthrow';
-import { type Competition, type Focus, type Position, seasonSchema, type Venue } from '../schemas/fieldValues.ts';
+import { err, ok, Result } from 'neverthrow';
+import {
+  type Attendance,
+  type Attribute,
+  type Card,
+  type Competition,
+  type Focus,
+  type Participation,
+  type Position,
+  seasonSchema,
+  type Venue,
+} from '../schemas/fieldValues.ts';
 import type { AppointmentId, PlayerId, TeamId } from '../schemas/ids.ts';
-import { type Appointment, Match, type ScheduleMatch, type ScheduleTraining, Training } from './appointment.ts';
+import { Match, type ScheduleMatch, type ScheduleTraining, Training } from './appointment.ts';
 import type { DomainError } from './errors.ts';
 import type { TeamEvent } from './events.ts';
 
@@ -20,7 +30,7 @@ type TeamState = {
   deleted: boolean;
   squad: Map<PlayerId, SquadPlayer>;
   /** Nur bestehende Termine; gelöschte werden nicht weiter geführt (Regel 10). */
-  appointments: Map<AppointmentId, Appointment>;
+  appointments: Map<AppointmentId, Match | Training>;
 };
 
 export type CreateTeam = { teamId: TeamId; name: string; season: string; tier: string | null };
@@ -38,7 +48,7 @@ function validSeason(season: string): Result<string, DomainError> {
 }
 
 /**
- * Das Team-Aggregate (Spezifikation 5.1): Teamdaten und Kader. Der Zustand entsteht nur aus
+ * Das Team-Aggregate (Spezifikation 5.1): Teamdaten, Kader, Termine und Bewertungen. Der Zustand entsteht nur aus
  * Events; Geschäftsmethoden prüfen die Regeln aus 5.2 und erzeugen bei Erfolg Events über
  * `#raise`. Im Fehlerfall entsteht kein Event und der Zustand bleibt unverändert.
  */
@@ -305,6 +315,129 @@ export class Team {
     return this.#training(trainingId).andThen((training) => training.changeFocus(focus));
   }
 
+  // 5.3.6 Bewertungen (gemeinsam)
+  //
+  // Geprüft wird in dieser Reihenfolge: Team gelöscht, Termin unbekannt, Spieler nicht im Kader,
+  // Spieler inaktiv (Regel 4), danach in der Bewertung: kein Einsatz (Regel 6), ungültiger Wert.
+  // `Result.combine` liefert den ersten Fehler in der Reihenfolge der Liste.
+
+  gradePerformance(appointmentId: AppointmentId, playerId: PlayerId, grade: number): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#activePlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).gradePerformance(grade),
+    );
+  }
+
+  withdrawPerformanceGrade(appointmentId: AppointmentId, playerId: PlayerId): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#activePlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).withdrawPerformanceGrade(),
+    );
+  }
+
+  gradeFairness(appointmentId: AppointmentId, playerId: PlayerId, grade: number): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#activePlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).gradeFairness(grade),
+    );
+  }
+
+  withdrawFairnessGrade(appointmentId: AppointmentId, playerId: PlayerId): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#activePlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).withdrawFairnessGrade(),
+    );
+  }
+
+  rateAttribute(
+    appointmentId: AppointmentId,
+    playerId: PlayerId,
+    attribute: Attribute,
+    stars: number,
+  ): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#activePlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).rateAttribute(attribute, stars),
+    );
+  }
+
+  /** Auch für inaktive Spieler: Der Kommentar ist kein Leistungswert. */
+  writeRatingComment(appointmentId: AppointmentId, playerId: PlayerId): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#squadPlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).writeComment(),
+    );
+  }
+
+  removeRatingComment(appointmentId: AppointmentId, playerId: PlayerId): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#squadPlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).removeComment(),
+    );
+  }
+
+  /** Auch für inaktive Spieler (5.3.6 nennt Regel 4 hier nicht). */
+  resetRating(appointmentId: AppointmentId, playerId: PlayerId): Result<void, DomainError> {
+    return Result.combine([this.#appointment(appointmentId), this.#squadPlayer(playerId)]).andThen(
+      ([appointment]) => appointment.rating(playerId).reset(),
+    );
+  }
+
+  // 5.3.7 Spielbewertung
+
+  recordParticipation(
+    matchId: AppointmentId,
+    playerId: PlayerId,
+    participation: Participation,
+  ): Result<void, DomainError> {
+    return Result.combine([this.#match(matchId), this.#activePlayer(playerId)]).andThen(([match]) =>
+      match.rating(playerId).recordParticipation(participation),
+    );
+  }
+
+  recordGoals(matchId: AppointmentId, playerId: PlayerId, count: number): Result<void, DomainError> {
+    return Result.combine([this.#match(matchId), this.#activePlayer(playerId)]).andThen(([match]) =>
+      match.rating(playerId).recordCount('goals', count),
+    );
+  }
+
+  recordAssists(matchId: AppointmentId, playerId: PlayerId, count: number): Result<void, DomainError> {
+    return Result.combine([this.#match(matchId), this.#activePlayer(playerId)]).andThen(([match]) =>
+      match.rating(playerId).recordCount('assists', count),
+    );
+  }
+
+  recordSaves(matchId: AppointmentId, playerId: PlayerId, count: number): Result<void, DomainError> {
+    return Result.combine([this.#match(matchId), this.#activePlayer(playerId)]).andThen(([match]) =>
+      match.rating(playerId).recordCount('saves', count),
+    );
+  }
+
+  showCard(matchId: AppointmentId, playerId: PlayerId, card: Card): Result<void, DomainError> {
+    return Result.combine([this.#match(matchId), this.#activePlayer(playerId)]).andThen(([match]) =>
+      match.rating(playerId).showCard(card),
+    );
+  }
+
+  withdrawCard(matchId: AppointmentId, playerId: PlayerId, card: Card): Result<void, DomainError> {
+    return Result.combine([this.#match(matchId), this.#activePlayer(playerId)]).andThen(([match]) =>
+      match.rating(playerId).withdrawCard(card),
+    );
+  }
+
+  markAllStarting(matchId: AppointmentId): Result<void, DomainError> {
+    return this.#match(matchId).map((match) => {
+      match.markAllStarting(this.#activePlayerIds());
+    });
+  }
+
+  // 5.3.8 Trainingsbewertung
+
+  recordAttendance(trainingId: AppointmentId, playerId: PlayerId, attendance: Attendance): Result<void, DomainError> {
+    return Result.combine([this.#training(trainingId), this.#activePlayer(playerId)]).andThen(([training]) =>
+      training.rating(playerId).recordAttendance(attendance),
+    );
+  }
+
+  markAllPresent(trainingId: AppointmentId): Result<void, DomainError> {
+    return this.#training(trainingId).map((training) => {
+      training.markAllPresent(this.#activePlayerIds());
+    });
+  }
+
   // Prüfungen
 
   /** Regel 1: Auf ein gelöschtes Team wird keine Geschäftsmethode mehr angewendet. */
@@ -320,6 +453,18 @@ export class Team {
     });
   }
 
+  /** Regel 4: Nur aktive Kaderspieler können bewertet werden. */
+  #activePlayer(playerId: PlayerId): Result<SquadPlayer, DomainError> {
+    return this.#squadPlayer(playerId).andThen((player) =>
+      player.active ? ok(player) : err({ type: 'PlayerInactive', playerId } as const),
+    );
+  }
+
+  /** Aktive Kaderspieler in der Reihenfolge des Kaders. */
+  #activePlayerIds(): PlayerId[] {
+    return [...this.#state.squad].filter(([, player]) => player.active).map(([playerId]) => playerId);
+  }
+
   /** Regel 5: Eine Termin-ID ist unter den bestehenden Terminen eindeutig. */
   #ensureIdFree(appointmentId: AppointmentId): Result<void, DomainError> {
     return this.#ensureNotDeleted().andThen(() =>
@@ -330,7 +475,7 @@ export class Team {
   }
 
   /** Regel 5: Nur bestehende Termine können geändert werden. */
-  #appointment(appointmentId: AppointmentId): Result<Appointment, DomainError> {
+  #appointment(appointmentId: AppointmentId): Result<Match | Training, DomainError> {
     return this.#ensureNotDeleted().andThen(() => {
       const appointment = this.#state.appointments.get(appointmentId);
       return appointment ? ok(appointment) : err({ type: 'AppointmentNotFound', appointmentId } as const);
@@ -422,6 +567,8 @@ export class Team {
         break;
       case 'PlayerRemovedFromSquad':
         state.squad.delete(event.data.playerId);
+        // Regel 10: Alle Bewertungen des Spielers in diesem Team verfallen.
+        for (const appointment of state.appointments.values()) appointment.dropRating(event.data.playerId);
         break;
       case 'PlayerProfileChanged':
         // Nur ein Hinweis auf die geänderte Profildatei; der Zustand ändert sich nicht.
@@ -462,6 +609,21 @@ export class Team {
       case 'TrainingDurationChanged':
       case 'TrainingTopicChanged':
       case 'TrainingFocusChanged':
+      case 'PerformanceGraded':
+      case 'PerformanceGradeWithdrawn':
+      case 'FairnessGraded':
+      case 'FairnessGradeWithdrawn':
+      case 'AttributeRated':
+      case 'RatingCommentWritten':
+      case 'RatingCommentRemoved':
+      case 'RatingReset':
+      case 'ParticipationRecorded':
+      case 'GoalsRecorded':
+      case 'AssistsRecorded':
+      case 'SavesRecorded':
+      case 'CardShown':
+      case 'CardWithdrawn':
+      case 'AttendanceRecorded':
         // Ein Event zu einem Termin, der nicht (mehr) besteht, ändert nichts.
         state.appointments.get(event.data.appointmentId)?.apply(event);
         break;

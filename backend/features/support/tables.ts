@@ -9,6 +9,9 @@ const NUMBER_COLUMNS = new Set([
   'goalsAgainst',
   'duration',
   'minutes',
+  'grade',
+  'stars',
+  'count',
 ]);
 
 /**

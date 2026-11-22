@@ -23,6 +23,7 @@ export class TeamScenario {
   #history: TeamEvent[] = [];
   #playerIds = new Map<string, PlayerId>();
   #appointmentIds = new Map<string, AppointmentId>();
+  #matchIds = new Set<AppointmentId>();
   #team: Team | undefined;
   #result: Result<unknown, DomainError> | undefined;
 
@@ -38,6 +39,12 @@ export class TeamScenario {
 
   given(event: TeamEvent): void {
     this.#history.push(event);
+    if (event.type === 'MatchScheduled') this.#matchIds.add(event.data.appointmentId);
+  }
+
+  /** Ob die Vorgeschichte die ID als Spieltag angelegt hat. */
+  isMatch(appointmentId: AppointmentId): boolean {
+    return this.#matchIds.has(appointmentId);
   }
 
   create(result: Result<Team, DomainError>): void {

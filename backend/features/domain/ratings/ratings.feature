@@ -1,4 +1,3 @@
-@wip
 Feature: Ratings
   A rating is the performance of a player at an appointment. Performance grade,
   fairness, attributes and comment work the same for matches and trainings.

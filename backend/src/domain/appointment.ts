@@ -1,10 +1,12 @@
 import { err, ok, Result } from 'neverthrow';
 import type { Competition, Focus, Venue } from '../schemas/fieldValues.ts';
-import type { AppointmentId } from '../schemas/ids.ts';
+import type { AppointmentId, PlayerId } from '../schemas/ids.ts';
 import type { DomainError } from './errors.ts';
 import type { AppointmentEvent, MatchEvent, MatchScheduled, TrainingEvent, TrainingScheduled } from './events.ts';
+import { MatchRating, type Rating, type RatingChange, TrainingRating } from './rating.ts';
+import { wholeNumber } from './values.ts';
 
-type AppointmentChange = AppointmentEvent | MatchEvent | TrainingEvent;
+type AppointmentChange = AppointmentEvent | MatchEvent | TrainingEvent | RatingChange;
 
 /** Erzeugt ein Event im Team (`Team.#raise`): anwenden und als Pending Event vormerken. */
 export type RaiseEvent = (event: AppointmentChange) => void;
@@ -27,11 +29,6 @@ export type ScheduleTraining = {
   topic?: string | null;
   focus?: Focus;
 };
-
-/** Regel 8: ganze Zahl im erlaubten Bereich, sonst `InvalidValue` für das Feld. */
-function wholeNumber(field: string, value: number, min: number, max = Infinity): Result<number, DomainError> {
-  return Number.isInteger(value) && value >= min && value <= max ? ok(value) : err({ type: 'InvalidValue', field });
-}
 
 /** Gegner: ohne Leerzeichen am Rand und nicht leer. */
 function validOpponent(opponent: string): Result<string, DomainError> {
@@ -60,20 +57,40 @@ function sameFocus(a: Focus, b: Focus): boolean {
 
 /**
  * Ein Termin des Teams (Spezifikation 3, „Termin als Basisklasse“). Enthält, was Spieltage und
- * Trainings gemeinsam haben. Termine sind Teil des Team-Aggregates: Ihre Geschäftsmethoden prüfen
- * die Regeln des Termins und erzeugen Events über `raise`, das auf `Team.#raise` zeigt. Das Team
- * merkt die Events vor und gibt sie über `apply` an den Termin zurück.
+ * Trainings gemeinsam haben, darunter je Spieler höchstens eine Bewertung. Termine sind Teil des
+ * Team-Aggregates: Ihre Geschäftsmethoden prüfen die Regeln des Termins und erzeugen Events über
+ * `raise`, das auf `Team.#raise` zeigt. Das Team merkt die Events vor und gibt sie über `apply` an
+ * den Termin zurück.
+ *
+ * `R` ist die Bewertungsart des Termins; jede Unterklasse erzeugt sie über `createRating`.
  */
-export abstract class Appointment {
+export abstract class Appointment<R extends Rating> {
   readonly id: AppointmentId;
   protected readonly raise: RaiseEvent;
   #date: string;
   #hasNotes = false;
+  /** Nur Bewertungen, für die schon etwas erfasst ist. */
+  #ratings = new Map<PlayerId, R>();
 
   protected constructor(id: AppointmentId, date: string, raise: RaiseEvent) {
     this.id = id;
     this.#date = date;
     this.raise = raise;
+  }
+
+  protected abstract createRating(playerId: PlayerId): R;
+
+  /**
+   * Die Bewertung eines Spielers. Ist noch nichts erfasst, ist es eine leere Bewertung, die erst
+   * mit ihrem ersten Event über `apply` in den Termin übernommen wird.
+   */
+  rating(playerId: PlayerId): R {
+    return this.#ratings.get(playerId) ?? this.createRating(playerId);
+  }
+
+  /** Folge eines entfernten Spielers (Regel 10): Seine Bewertung verfällt. Prüft nichts. */
+  dropRating(playerId: PlayerId): void {
+    this.#ratings.delete(playerId);
   }
 
   reschedule(date: string): Result<void, DomainError> {
@@ -104,14 +121,40 @@ export abstract class Appointment {
       case 'AppointmentNotesRemoved':
         this.#hasNotes = false;
         break;
+      case 'PerformanceGraded':
+      case 'PerformanceGradeWithdrawn':
+      case 'FairnessGraded':
+      case 'FairnessGradeWithdrawn':
+      case 'AttributeRated':
+      case 'RatingCommentWritten':
+      case 'RatingCommentRemoved':
+      case 'RatingReset':
+      case 'ParticipationRecorded':
+      case 'GoalsRecorded':
+      case 'AssistsRecorded':
+      case 'SavesRecorded':
+      case 'CardShown':
+      case 'CardWithdrawn':
+      case 'AttendanceRecorded':
+        this.#storedRating(event.data.playerId).apply(event);
+        break;
       default:
         // Events der anderen Termin-Art betreffen diesen Termin nicht.
         break;
     }
   }
+
+  #storedRating(playerId: PlayerId): R {
+    let rating = this.#ratings.get(playerId);
+    if (!rating) {
+      rating = this.createRating(playerId);
+      this.#ratings.set(playerId, rating);
+    }
+    return rating;
+  }
 }
 
-export class Match extends Appointment {
+export class Match extends Appointment<MatchRating> {
   #matchday: number | null;
   #opponent: string | null;
   #venue: Venue | null;
@@ -138,6 +181,15 @@ export class Match extends Appointment {
       venue: input.venue ?? null,
       competition: input.competition ?? null,
     }));
+  }
+
+  protected createRating(playerId: PlayerId): MatchRating {
+    return new MatchRating(this.id, playerId, this.raise);
+  }
+
+  /** „Alle Startelf“ für die übergebenen aktiven Kaderspieler ohne erfassten Einsatz (5.3.7). */
+  markAllStarting(activePlayerIds: Iterable<PlayerId>): void {
+    for (const playerId of activePlayerIds) this.rating(playerId).markStarting();
   }
 
   changeMatchday(matchday: number): Result<void, DomainError> {
@@ -242,7 +294,7 @@ export class Match extends Appointment {
   }
 }
 
-export class Training extends Appointment {
+export class Training extends Appointment<TrainingRating> {
   #duration: number;
   #topic: string | null;
   #focus: Focus;
@@ -263,6 +315,15 @@ export class Training extends Appointment {
       topic: normalizeTopic(input.topic ?? null),
       focus: normalizeFocus(input.focus ?? []),
     }));
+  }
+
+  protected createRating(playerId: PlayerId): TrainingRating {
+    return new TrainingRating(this.id, playerId, this.raise);
+  }
+
+  /** „Alle anwesend“ für die übergebenen aktiven Kaderspieler ohne erfasste Anwesenheit (5.3.8). */
+  markAllPresent(activePlayerIds: Iterable<PlayerId>): void {
+    for (const playerId of activePlayerIds) this.rating(playerId).markPresent();
   }
 
   changeDuration(minutes: number): Result<void, DomainError> {

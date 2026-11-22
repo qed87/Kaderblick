@@ -1,4 +1,3 @@
-@wip
 Feature: Training ratings
   A training rating records the attendance (present, late, excused,
   unexcused). Setting a player to excused or unexcused lets the performance
