@@ -4,11 +4,10 @@ import type { AppointmentId } from '../schemas/ids.ts';
 import type { DomainError } from './errors.ts';
 import type { AppointmentEvent, MatchEvent, MatchScheduled, TrainingEvent, TrainingScheduled } from './events.ts';
 
-/**
- * Ergebnis einer Prüfung: das Event, das die Änderung beschreibt, `undefined` bei einer leeren
- * Änderung (Regel 12) oder ein fachlicher Fehler.
- */
-export type Decision<Event> = Result<Event | undefined, DomainError>;
+type AppointmentChange = AppointmentEvent | MatchEvent | TrainingEvent;
+
+/** Erzeugt ein Event im Team (`Team.#raise`): anwenden und als Pending Event vormerken. */
+export type RaiseEvent = (event: AppointmentChange) => void;
 
 const MAX_TRAINING_MINUTES = 600;
 
@@ -61,35 +60,40 @@ function sameFocus(a: Focus, b: Focus): boolean {
 
 /**
  * Ein Termin des Teams (Spezifikation 3, „Termin als Basisklasse“). Enthält, was Spieltage und
- * Trainings gemeinsam haben. Termine sind Teil des Team-Aggregates: Sie prüfen ihre Regeln und
- * beschreiben eine Änderung als Event, erzeugen und speichern es aber nicht selbst. Das übernimmt
- * `Team`, das Events über `apply` an den Termin zurückgibt.
+ * Trainings gemeinsam haben. Termine sind Teil des Team-Aggregates: Ihre Geschäftsmethoden prüfen
+ * die Regeln des Termins und erzeugen Events über `raise`, das auf `Team.#raise` zeigt. Das Team
+ * merkt die Events vor und gibt sie über `apply` an den Termin zurück.
  */
 export abstract class Appointment {
   readonly id: AppointmentId;
+  protected readonly raise: RaiseEvent;
   #date: string;
   #hasNotes = false;
 
-  protected constructor(id: AppointmentId, date: string) {
+  protected constructor(id: AppointmentId, date: string, raise: RaiseEvent) {
     this.id = id;
     this.#date = date;
+    this.raise = raise;
   }
 
-  reschedule(date: string): Decision<AppointmentEvent> {
-    return ok(date === this.#date ? undefined : { type: 'AppointmentRescheduled', data: { appointmentId: this.id, date } });
+  reschedule(date: string): Result<void, DomainError> {
+    if (date !== this.#date) this.raise({ type: 'AppointmentRescheduled', data: { appointmentId: this.id, date } });
+    return ok(undefined);
   }
 
   /** Die Notiz liegt als Datei vor; jedes Schreiben ist eine Änderung. */
-  writeNotes(): Decision<AppointmentEvent> {
-    return ok({ type: 'AppointmentNotesWritten', data: { appointmentId: this.id } });
+  writeNotes(): Result<void, DomainError> {
+    this.raise({ type: 'AppointmentNotesWritten', data: { appointmentId: this.id } });
+    return ok(undefined);
   }
 
-  removeNotes(): Decision<AppointmentEvent> {
-    return ok(this.#hasNotes ? { type: 'AppointmentNotesRemoved', data: { appointmentId: this.id } } : undefined);
+  removeNotes(): Result<void, DomainError> {
+    if (this.#hasNotes) this.raise({ type: 'AppointmentNotesRemoved', data: { appointmentId: this.id } });
+    return ok(undefined);
   }
 
   /** Übernimmt ein Event in den Zustand. Unterklassen behandeln ihre eigenen Events zuerst. */
-  apply(event: AppointmentEvent | MatchEvent | TrainingEvent): void {
+  apply(event: AppointmentChange): void {
     switch (event.type) {
       case 'AppointmentRescheduled':
         this.#date = event.data.date;
@@ -114,8 +118,8 @@ export class Match extends Appointment {
   #competition: Competition | null;
   #result: { goalsFor: number; goalsAgainst: number } | null = null;
 
-  constructor(scheduled: MatchScheduled) {
-    super(scheduled.appointmentId, scheduled.date);
+  constructor(scheduled: MatchScheduled, raise: RaiseEvent) {
+    super(scheduled.appointmentId, scheduled.date, raise);
     this.#matchday = scheduled.matchday;
     this.#opponent = scheduled.opponent;
     this.#venue = scheduled.venue;
@@ -136,61 +140,71 @@ export class Match extends Appointment {
     }));
   }
 
-  changeMatchday(matchday: number): Decision<MatchEvent> {
-    return wholeNumber('matchday', matchday, 1).map((valid) =>
-      valid === this.#matchday ? undefined : { type: 'MatchdayChanged', data: { appointmentId: this.id, matchday: valid } },
-    );
+  changeMatchday(matchday: number): Result<void, DomainError> {
+    return wholeNumber('matchday', matchday, 1).map((valid) => {
+      if (valid !== this.#matchday) {
+        this.raise({ type: 'MatchdayChanged', data: { appointmentId: this.id, matchday: valid } });
+      }
+    });
   }
 
-  removeMatchday(): Decision<MatchEvent> {
-    return ok(this.#matchday === null ? undefined : { type: 'MatchdayRemoved', data: { appointmentId: this.id } });
+  removeMatchday(): Result<void, DomainError> {
+    if (this.#matchday !== null) this.raise({ type: 'MatchdayRemoved', data: { appointmentId: this.id } });
+    return ok(undefined);
   }
 
-  changeOpponent(opponent: string): Decision<MatchEvent> {
-    return validOpponent(opponent).map((valid) =>
-      valid === this.#opponent ? undefined : { type: 'OpponentChanged', data: { appointmentId: this.id, opponent: valid } },
-    );
+  changeOpponent(opponent: string): Result<void, DomainError> {
+    return validOpponent(opponent).map((valid) => {
+      if (valid !== this.#opponent) {
+        this.raise({ type: 'OpponentChanged', data: { appointmentId: this.id, opponent: valid } });
+      }
+    });
   }
 
-  removeOpponent(): Decision<MatchEvent> {
-    return ok(this.#opponent === null ? undefined : { type: 'OpponentRemoved', data: { appointmentId: this.id } });
+  removeOpponent(): Result<void, DomainError> {
+    if (this.#opponent !== null) this.raise({ type: 'OpponentRemoved', data: { appointmentId: this.id } });
+    return ok(undefined);
   }
 
-  changeVenue(venue: Venue): Decision<MatchEvent> {
-    return ok(venue === this.#venue ? undefined : { type: 'VenueChanged', data: { appointmentId: this.id, venue } });
+  changeVenue(venue: Venue): Result<void, DomainError> {
+    if (venue !== this.#venue) this.raise({ type: 'VenueChanged', data: { appointmentId: this.id, venue } });
+    return ok(undefined);
   }
 
-  removeVenue(): Decision<MatchEvent> {
-    return ok(this.#venue === null ? undefined : { type: 'VenueRemoved', data: { appointmentId: this.id } });
+  removeVenue(): Result<void, DomainError> {
+    if (this.#venue !== null) this.raise({ type: 'VenueRemoved', data: { appointmentId: this.id } });
+    return ok(undefined);
   }
 
-  changeCompetition(competition: Competition): Decision<MatchEvent> {
-    return ok(
-      competition === this.#competition
-        ? undefined
-        : { type: 'CompetitionChanged', data: { appointmentId: this.id, competition } },
-    );
+  changeCompetition(competition: Competition): Result<void, DomainError> {
+    if (competition !== this.#competition) {
+      this.raise({ type: 'CompetitionChanged', data: { appointmentId: this.id, competition } });
+    }
+    return ok(undefined);
   }
 
-  removeCompetition(): Decision<MatchEvent> {
-    return ok(this.#competition === null ? undefined : { type: 'CompetitionRemoved', data: { appointmentId: this.id } });
+  removeCompetition(): Result<void, DomainError> {
+    if (this.#competition !== null) this.raise({ type: 'CompetitionRemoved', data: { appointmentId: this.id } });
+    return ok(undefined);
   }
 
-  recordResult(goalsFor: number, goalsAgainst: number): Decision<MatchEvent> {
+  recordResult(goalsFor: number, goalsAgainst: number): Result<void, DomainError> {
     return wholeNumber('goalsFor', goalsFor, 0)
       .andThen(() => wholeNumber('goalsAgainst', goalsAgainst, 0))
-      .map(() =>
-        this.#result?.goalsFor === goalsFor && this.#result.goalsAgainst === goalsAgainst
-          ? undefined
-          : { type: 'MatchResultRecorded', data: { appointmentId: this.id, goalsFor, goalsAgainst } },
-      );
+      .map(() => {
+        const unchanged = this.#result?.goalsFor === goalsFor && this.#result.goalsAgainst === goalsAgainst;
+        if (!unchanged) {
+          this.raise({ type: 'MatchResultRecorded', data: { appointmentId: this.id, goalsFor, goalsAgainst } });
+        }
+      });
   }
 
-  clearResult(): Decision<MatchEvent> {
-    return ok(this.#result === null ? undefined : { type: 'MatchResultCleared', data: { appointmentId: this.id } });
+  clearResult(): Result<void, DomainError> {
+    if (this.#result !== null) this.raise({ type: 'MatchResultCleared', data: { appointmentId: this.id } });
+    return ok(undefined);
   }
 
-  override apply(event: AppointmentEvent | MatchEvent | TrainingEvent): void {
+  override apply(event: AppointmentChange): void {
     switch (event.type) {
       case 'MatchdayChanged':
         this.#matchday = event.data.matchday;
@@ -233,8 +247,8 @@ export class Training extends Appointment {
   #topic: string | null;
   #focus: Focus;
 
-  constructor(scheduled: TrainingScheduled) {
-    super(scheduled.appointmentId, scheduled.date);
+  constructor(scheduled: TrainingScheduled, raise: RaiseEvent) {
+    super(scheduled.appointmentId, scheduled.date, raise);
     this.#duration = scheduled.duration;
     this.#topic = scheduled.topic;
     this.#focus = scheduled.focus;
@@ -251,34 +265,32 @@ export class Training extends Appointment {
     }));
   }
 
-  changeDuration(minutes: number): Decision<TrainingEvent> {
-    return validTrainingDuration(minutes).map((valid) =>
-      valid === this.#duration
-        ? undefined
-        : { type: 'TrainingDurationChanged', data: { appointmentId: this.id, minutes: valid } },
-    );
+  changeDuration(minutes: number): Result<void, DomainError> {
+    return validTrainingDuration(minutes).map((valid) => {
+      if (valid !== this.#duration) {
+        this.raise({ type: 'TrainingDurationChanged', data: { appointmentId: this.id, minutes: valid } });
+      }
+    });
   }
 
   /** `null` oder ein leeres Thema entfernt das Thema. */
-  changeTopic(topic: string | null): Decision<TrainingEvent> {
+  changeTopic(topic: string | null): Result<void, DomainError> {
     const normalized = normalizeTopic(topic);
-    return ok(
-      normalized === this.#topic
-        ? undefined
-        : { type: 'TrainingTopicChanged', data: { appointmentId: this.id, topic: normalized } },
-    );
+    if (normalized !== this.#topic) {
+      this.raise({ type: 'TrainingTopicChanged', data: { appointmentId: this.id, topic: normalized } });
+    }
+    return ok(undefined);
   }
 
-  changeFocus(focus: Focus): Decision<TrainingEvent> {
+  changeFocus(focus: Focus): Result<void, DomainError> {
     const normalized = normalizeFocus(focus);
-    return ok(
-      sameFocus(normalized, this.#focus)
-        ? undefined
-        : { type: 'TrainingFocusChanged', data: { appointmentId: this.id, focus: normalized } },
-    );
+    if (!sameFocus(normalized, this.#focus)) {
+      this.raise({ type: 'TrainingFocusChanged', data: { appointmentId: this.id, focus: normalized } });
+    }
+    return ok(undefined);
   }
 
-  override apply(event: AppointmentEvent | MatchEvent | TrainingEvent): void {
+  override apply(event: AppointmentChange): void {
     switch (event.type) {
       case 'TrainingDurationChanged':
         this.#duration = event.data.minutes;

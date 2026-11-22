@@ -1,7 +1,7 @@
 import { err, ok, type Result } from 'neverthrow';
 import { type Competition, type Focus, type Position, seasonSchema, type Venue } from '../schemas/fieldValues.ts';
 import type { AppointmentId, PlayerId, TeamId } from '../schemas/ids.ts';
-import { type Appointment, type Decision, Match, type ScheduleMatch, type ScheduleTraining, Training } from './appointment.ts';
+import { type Appointment, Match, type ScheduleMatch, type ScheduleTraining, Training } from './appointment.ts';
 import type { DomainError } from './errors.ts';
 import type { TeamEvent } from './events.ts';
 
@@ -215,15 +215,15 @@ export class Team {
   // 5.3.3 Termine (gemeinsam)
 
   rescheduleAppointment(appointmentId: AppointmentId, date: string): Result<void, DomainError> {
-    return this.#change(this.#appointment(appointmentId), (appointment) => appointment.reschedule(date));
+    return this.#appointment(appointmentId).andThen((appointment) => appointment.reschedule(date));
   }
 
   writeAppointmentNotes(appointmentId: AppointmentId): Result<void, DomainError> {
-    return this.#change(this.#appointment(appointmentId), (appointment) => appointment.writeNotes());
+    return this.#appointment(appointmentId).andThen((appointment) => appointment.writeNotes());
   }
 
   removeAppointmentNotes(appointmentId: AppointmentId): Result<void, DomainError> {
-    return this.#change(this.#appointment(appointmentId), (appointment) => appointment.removeNotes());
+    return this.#appointment(appointmentId).andThen((appointment) => appointment.removeNotes());
   }
 
   deleteAppointment(appointmentId: AppointmentId): Result<void, DomainError> {
@@ -243,43 +243,43 @@ export class Team {
   }
 
   changeMatchday(matchId: AppointmentId, matchday: number): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.changeMatchday(matchday));
+    return this.#match(matchId).andThen((match) => match.changeMatchday(matchday));
   }
 
   removeMatchday(matchId: AppointmentId): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.removeMatchday());
+    return this.#match(matchId).andThen((match) => match.removeMatchday());
   }
 
   changeOpponent(matchId: AppointmentId, opponent: string): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.changeOpponent(opponent));
+    return this.#match(matchId).andThen((match) => match.changeOpponent(opponent));
   }
 
   removeOpponent(matchId: AppointmentId): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.removeOpponent());
+    return this.#match(matchId).andThen((match) => match.removeOpponent());
   }
 
   changeVenue(matchId: AppointmentId, venue: Venue): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.changeVenue(venue));
+    return this.#match(matchId).andThen((match) => match.changeVenue(venue));
   }
 
   removeVenue(matchId: AppointmentId): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.removeVenue());
+    return this.#match(matchId).andThen((match) => match.removeVenue());
   }
 
   changeCompetition(matchId: AppointmentId, competition: Competition): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.changeCompetition(competition));
+    return this.#match(matchId).andThen((match) => match.changeCompetition(competition));
   }
 
   removeCompetition(matchId: AppointmentId): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.removeCompetition());
+    return this.#match(matchId).andThen((match) => match.removeCompetition());
   }
 
   recordResult(matchId: AppointmentId, goalsFor: number, goalsAgainst: number): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.recordResult(goalsFor, goalsAgainst));
+    return this.#match(matchId).andThen((match) => match.recordResult(goalsFor, goalsAgainst));
   }
 
   clearResult(matchId: AppointmentId): Result<void, DomainError> {
-    return this.#change(this.#match(matchId), (match) => match.clearResult());
+    return this.#match(matchId).andThen((match) => match.clearResult());
   }
 
   // 5.3.5 Trainings
@@ -293,16 +293,16 @@ export class Team {
   }
 
   changeTrainingDuration(trainingId: AppointmentId, minutes: number): Result<void, DomainError> {
-    return this.#change(this.#training(trainingId), (training) => training.changeDuration(minutes));
+    return this.#training(trainingId).andThen((training) => training.changeDuration(minutes));
   }
 
   /** `null` oder ein leeres Thema entfernt das Thema. */
   changeTrainingTopic(trainingId: AppointmentId, topic: string | null): Result<void, DomainError> {
-    return this.#change(this.#training(trainingId), (training) => training.changeTopic(topic));
+    return this.#training(trainingId).andThen((training) => training.changeTopic(topic));
   }
 
   changeTrainingFocus(trainingId: AppointmentId, focus: Focus): Result<void, DomainError> {
-    return this.#change(this.#training(trainingId), (training) => training.changeFocus(focus));
+    return this.#training(trainingId).andThen((training) => training.changeFocus(focus));
   }
 
   // Prüfungen
@@ -353,16 +353,6 @@ export class Team {
         ? ok(appointment)
         : err({ type: 'AppointmentNotFound', appointmentId: trainingId } as const),
     );
-  }
-
-  /** Lässt einen Termin über die Änderung entscheiden und erzeugt das Event, falls es eines gibt. */
-  #change<Target>(
-    target: Result<Target, DomainError>,
-    decide: (target: Target) => Decision<TeamEvent>,
-  ): Result<void, DomainError> {
-    return target.andThen(decide).map((event) => {
-      if (event) this.#raise(event);
-    });
   }
 
   // Events
@@ -436,11 +426,22 @@ export class Team {
       case 'PlayerProfileChanged':
         // Nur ein Hinweis auf die geänderte Profildatei; der Zustand ändert sich nicht.
         break;
+      // Termine erzeugen ihre Events über `#raise` des Teams; sie landen dort als Pending Events.
       case 'MatchScheduled':
-        state.appointments.set(event.data.appointmentId, new Match(event.data));
+        state.appointments.set(
+          event.data.appointmentId,
+          new Match(event.data, (change) => {
+            this.#raise(change);
+          }),
+        );
         break;
       case 'TrainingScheduled':
-        state.appointments.set(event.data.appointmentId, new Training(event.data));
+        state.appointments.set(
+          event.data.appointmentId,
+          new Training(event.data, (change) => {
+            this.#raise(change);
+          }),
+        );
         break;
       case 'AppointmentDeleted':
         state.appointments.delete(event.data.appointmentId);
