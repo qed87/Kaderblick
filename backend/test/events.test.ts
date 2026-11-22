@@ -3,8 +3,9 @@ import { describe, it } from 'node:test';
 import { teamEventSchema } from '../src/domain/events.ts';
 
 const playerId = '7d4a2c1e-9b3f-4e8a-a6d2-5c1f0e9b8a7d';
+const appointmentId = '3b9e1f4a-2c7d-4e5b-9a8f-1d6c0b2e4f7a';
 
-/** Je Event-Typ aus 5.3.1 und 5.3.2 ein gültiges Beispiel. */
+/** Je Event-Typ aus 5.3.1 bis 5.3.5 ein gültiges Beispiel. */
 const examples = [
   { type: 'TeamCreated', data: { teamId: 7, name: 'U19', season: '2026_27', tier: 'Kreisliga' } },
   { type: 'TeamCreated', data: { teamId: 7, name: 'U19', season: '2026_27', tier: null } },
@@ -27,6 +28,43 @@ const examples = [
   { type: 'PlayerReactivated', data: { playerId } },
   { type: 'PlayerRemovedFromSquad', data: { playerId } },
   { type: 'PlayerProfileChanged', data: { playerId } },
+  { type: 'AppointmentRescheduled', data: { appointmentId, date: '2026-09-20' } },
+  { type: 'AppointmentNotesWritten', data: { appointmentId } },
+  { type: 'AppointmentNotesRemoved', data: { appointmentId } },
+  { type: 'AppointmentDeleted', data: { appointmentId } },
+  {
+    type: 'MatchScheduled',
+    data: {
+      appointmentId,
+      date: '2026-09-12',
+      matchday: 3,
+      opponent: 'SV Beispiel',
+      venue: 'home',
+      competition: 'league',
+    },
+  },
+  {
+    type: 'MatchScheduled',
+    data: { appointmentId, date: '2026-09-12', matchday: null, opponent: null, venue: null, competition: null },
+  },
+  { type: 'MatchdayChanged', data: { appointmentId, matchday: 4 } },
+  { type: 'MatchdayRemoved', data: { appointmentId } },
+  { type: 'OpponentChanged', data: { appointmentId, opponent: 'FC Muster' } },
+  { type: 'OpponentRemoved', data: { appointmentId } },
+  { type: 'VenueChanged', data: { appointmentId, venue: 'neutral' } },
+  { type: 'VenueRemoved', data: { appointmentId } },
+  { type: 'CompetitionChanged', data: { appointmentId, competition: 'tournament' } },
+  { type: 'CompetitionRemoved', data: { appointmentId } },
+  { type: 'MatchResultRecorded', data: { appointmentId, goalsFor: 2, goalsAgainst: 1 } },
+  { type: 'MatchResultCleared', data: { appointmentId } },
+  {
+    type: 'TrainingScheduled',
+    data: { appointmentId, date: '2026-09-15', duration: 90, topic: 'Pressing', focus: ['tactics', 'fitness'] },
+  },
+  { type: 'TrainingScheduled', data: { appointmentId, date: '2026-09-15', duration: 90, topic: null, focus: [] } },
+  { type: 'TrainingDurationChanged', data: { appointmentId, minutes: 75 } },
+  { type: 'TrainingTopicChanged', data: { appointmentId, topic: null } },
+  { type: 'TrainingFocusChanged', data: { appointmentId, focus: ['goalkeeping'] } },
 ];
 
 describe('teamEventSchema', () => {
@@ -36,8 +74,8 @@ describe('teamEventSchema', () => {
     });
   }
 
-  it('deckt alle Event-Typen aus 5.3.1 und 5.3.2 ab', () => {
-    assert.equal(new Set(examples.map((e) => e.type)).size, 18);
+  it('deckt alle Event-Typen aus 5.3.1 bis 5.3.5 ab', () => {
+    assert.equal(new Set(examples.map((e) => e.type)).size, 37);
   });
 
   it('lehnt unbekannte Event-Typen ab', () => {
@@ -51,6 +89,9 @@ describe('teamEventSchema', () => {
       { type: 'PositionChanged', data: { playerId, position: 'LV' } },
       { type: 'PlayerDeactivated', data: { playerId: 'keine-uuid' } },
       { type: 'ShirtNumberAssigned', data: { playerId, number: 7.5 } },
+      { type: 'AppointmentRescheduled', data: { appointmentId, date: '12.09.2026' } },
+      { type: 'VenueChanged', data: { appointmentId, venue: 'heim' } },
+      { type: 'TrainingFocusChanged', data: { appointmentId, focus: ['juggling'] } },
     ]) {
       assert.equal(teamEventSchema.safeParse(invalid).success, false, JSON.stringify(invalid));
     }

@@ -2,23 +2,8 @@ import assert from 'node:assert/strict';
 import { type DataTable, Given, Then, When } from '@cucumber/cucumber';
 import { Team } from '../../src/domain/team.ts';
 import { positionSchema } from '../../src/schemas/fieldValues.ts';
+import { eventFromRow } from '../support/tables.ts';
 import type { KaderblickWorld } from '../support/world.ts';
-
-const NUMBER_COLUMNS = new Set(['teamId', 'shirtNumber', 'number']);
-
-/** Wandelt eine Tabellenzeile in ein Event: leere Zelle = null, Namen in playerId = Spieler. */
-function eventFromRow(world: KaderblickWorld, row: Record<string, string>): { type: string; data: object } {
-  const { event: type = '', ...cells } = row;
-  const data = Object.fromEntries(
-    Object.entries(cells).map(([column, cell]): [string, unknown] => {
-      if (cell === '') return [column, null];
-      if (column === 'playerId') return [column, world.team.playerId(cell)];
-      if (NUMBER_COLUMNS.has(column)) return [column, Number(cell)];
-      return [column, cell];
-    }),
-  );
-  return { type, data };
-}
 
 // Vorgeschichte
 
@@ -196,7 +181,7 @@ When('the profile of {string} is noted as changed', function (this: KaderblickWo
 
 Then('the following is recorded:', function (this: KaderblickWorld, table: DataTable) {
   assert.equal(this.team.result.isOk(), true, `Abgelehnt: ${JSON.stringify(this.team.result)}`);
-  const expected = table.hashes().map((row) => eventFromRow(this, row));
+  const expected = table.hashes().map((row) => eventFromRow(this.team, row));
   assert.deepEqual(this.team.recorded, expected);
 });
 

@@ -3,7 +3,16 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../src/domain/errors.ts';
 import type { TeamEvent } from '../../src/domain/events.ts';
 import { Team } from '../../src/domain/team.ts';
-import type { PlayerId } from '../../src/schemas/ids.ts';
+import type { AppointmentId, PlayerId } from '../../src/schemas/ids.ts';
+
+function idFor(ids: Map<string, string>, alias: string): string {
+  let id = ids.get(alias);
+  if (!id) {
+    id = randomUUID();
+    ids.set(alias, id);
+  }
+  return id;
+}
 
 /**
  * Ablauf eines Domänen-Szenarios: Die Givens sammeln Events als Vorgeschichte, das When baut
@@ -13,17 +22,18 @@ import type { PlayerId } from '../../src/schemas/ids.ts';
 export class TeamScenario {
   #history: TeamEvent[] = [];
   #playerIds = new Map<string, PlayerId>();
+  #appointmentIds = new Map<string, AppointmentId>();
   #team: Team | undefined;
   #result: Result<unknown, DomainError> | undefined;
 
   /** Liefert die feste playerId zu einem Namen wie "Mia" im Szenario. */
   playerId(alias: string): PlayerId {
-    let id = this.#playerIds.get(alias);
-    if (!id) {
-      id = randomUUID();
-      this.#playerIds.set(alias, id);
-    }
-    return id;
+    return idFor(this.#playerIds, alias);
+  }
+
+  /** Liefert die feste ID eines Termins zu einem Kürzel wie "M1" im Szenario. */
+  appointmentId(alias: string): AppointmentId {
+    return idFor(this.#appointmentIds, alias);
   }
 
   given(event: TeamEvent): void {

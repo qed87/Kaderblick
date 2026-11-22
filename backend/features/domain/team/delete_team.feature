@@ -1,6 +1,7 @@
 Feature: Delete a team
   A deleted team stays in the event store, but no further changes are
-  possible: every business method is rejected with TeamDeleted (rule 1).
+  possible: every business method is rejected with TeamDeleted. Deleting it
+  again records nothing (rule 1).
 
   Background:
     Given team 7 "U19" in season "2026_27" with tier "Kreisliga"
@@ -11,6 +12,11 @@ Feature: Delete a team
     Then the following is recorded:
       | event       |
       | TeamDeleted |
+
+  Scenario: Deleting a deleted team again records nothing
+    Given the team has been deleted
+    When the team is deleted
+    Then nothing is recorded
 
   Scenario Outline: A deleted team cannot be changed
     Given the team has been deleted
@@ -27,7 +33,6 @@ Feature: Delete a team
       | the crest is removed                       |
       | the coaches are changed                    |
       | the coaches are removed                    |
-      | the team is deleted                        |
       | "Jonas" is added to the squad              |
       | "Mia" gets shirt number 10                 |
       | the shirt number of "Mia" is removed       |

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { positionSchema } from '../schemas/fieldValues.ts';
-import { playerIdSchema, teamIdSchema } from '../schemas/ids.ts';
+import { competitionSchema, focusSchema, positionSchema, venueSchema } from '../schemas/fieldValues.ts';
+import { appointmentIdSchema, playerIdSchema, teamIdSchema } from '../schemas/ids.ts';
 
 // Events des Streams `team-{teamId}` (Spezifikation 5.3). Ein Event hat seinen Typ in `type`
 // (in KurrentDB der Event-Typ) und seinen Payload in `data` (die Event-Daten).
@@ -26,6 +26,12 @@ function event<Type extends string, Data extends z.ZodObject>(type: Type, data: 
 
 const empty = z.object({});
 const playerOnly = z.object({ playerId: playerIdSchema });
+const appointmentOnly = z.object({ appointmentId: appointmentIdSchema });
+
+/** `data` eines Termin-Events: `appointmentId` plus die Felder aus `shape`, mit ihren genauen Typen. */
+function appointment<Shape extends z.ZodRawShape>(shape: Shape) {
+  return z.object({ appointmentId: appointmentIdSchema, ...shape });
+}
 
 // 5.3.1 Team
 
@@ -67,6 +73,49 @@ const playerReactivatedSchema = event('PlayerReactivated', playerOnly);
 const playerRemovedFromSquadSchema = event('PlayerRemovedFromSquad', playerOnly);
 const playerProfileChangedSchema = event('PlayerProfileChanged', playerOnly);
 
+// 5.3.3 Termine (gemeinsam)
+
+const appointmentRescheduledSchema = event('AppointmentRescheduled', appointment({ date: z.iso.date() }));
+const appointmentNotesWrittenSchema = event('AppointmentNotesWritten', appointmentOnly);
+const appointmentNotesRemovedSchema = event('AppointmentNotesRemoved', appointmentOnly);
+const appointmentDeletedSchema = event('AppointmentDeleted', appointmentOnly);
+
+// 5.3.4 Spieltage
+
+const matchScheduledSchema = event(
+  'MatchScheduled',
+  appointment({
+    date: z.iso.date(),
+    matchday: z.number().int().nullable(),
+    opponent: z.string().nullable(),
+    venue: venueSchema.nullable(),
+    competition: competitionSchema.nullable(),
+  }),
+);
+const matchdayChangedSchema = event('MatchdayChanged', appointment({ matchday: z.number().int() }));
+const matchdayRemovedSchema = event('MatchdayRemoved', appointmentOnly);
+const opponentChangedSchema = event('OpponentChanged', appointment({ opponent: z.string() }));
+const opponentRemovedSchema = event('OpponentRemoved', appointmentOnly);
+const venueChangedSchema = event('VenueChanged', appointment({ venue: venueSchema }));
+const venueRemovedSchema = event('VenueRemoved', appointmentOnly);
+const competitionChangedSchema = event('CompetitionChanged', appointment({ competition: competitionSchema }));
+const competitionRemovedSchema = event('CompetitionRemoved', appointmentOnly);
+const matchResultRecordedSchema = event(
+  'MatchResultRecorded',
+  appointment({ goalsFor: z.number().int(), goalsAgainst: z.number().int() }),
+);
+const matchResultClearedSchema = event('MatchResultCleared', appointmentOnly);
+
+// 5.3.5 Trainings
+
+const trainingScheduledSchema = event(
+  'TrainingScheduled',
+  appointment({ date: z.iso.date(), duration: z.number().int(), topic: z.string().nullable(), focus: focusSchema }),
+);
+const trainingDurationChangedSchema = event('TrainingDurationChanged', appointment({ minutes: z.number().int() }));
+const trainingTopicChangedSchema = event('TrainingTopicChanged', appointment({ topic: z.string().nullable() }));
+const trainingFocusChangedSchema = event('TrainingFocusChanged', appointment({ focus: focusSchema }));
+
 export const teamEventSchema = z.discriminatedUnion('type', [
   teamCreatedSchema,
   teamRenamedSchema,
@@ -86,6 +135,58 @@ export const teamEventSchema = z.discriminatedUnion('type', [
   playerReactivatedSchema,
   playerRemovedFromSquadSchema,
   playerProfileChangedSchema,
+  appointmentRescheduledSchema,
+  appointmentNotesWrittenSchema,
+  appointmentNotesRemovedSchema,
+  appointmentDeletedSchema,
+  matchScheduledSchema,
+  matchdayChangedSchema,
+  matchdayRemovedSchema,
+  opponentChangedSchema,
+  opponentRemovedSchema,
+  venueChangedSchema,
+  venueRemovedSchema,
+  competitionChangedSchema,
+  competitionRemovedSchema,
+  matchResultRecordedSchema,
+  matchResultClearedSchema,
+  trainingScheduledSchema,
+  trainingDurationChangedSchema,
+  trainingTopicChangedSchema,
+  trainingFocusChangedSchema,
 ]);
 
 export type TeamEvent = z.infer<typeof teamEventSchema>;
+
+/** Events, die einen bestehenden Termin ändern, unabhängig von seiner Art. */
+export type AppointmentEvent = Extract<
+  TeamEvent,
+  { type: 'AppointmentRescheduled' | 'AppointmentNotesWritten' | 'AppointmentNotesRemoved' }
+>;
+
+/** Events, die einen bestehenden Spieltag ändern. */
+export type MatchEvent = Extract<
+  TeamEvent,
+  {
+    type:
+      | 'MatchdayChanged'
+      | 'MatchdayRemoved'
+      | 'OpponentChanged'
+      | 'OpponentRemoved'
+      | 'VenueChanged'
+      | 'VenueRemoved'
+      | 'CompetitionChanged'
+      | 'CompetitionRemoved'
+      | 'MatchResultRecorded'
+      | 'MatchResultCleared';
+  }
+>;
+
+/** Events, die ein bestehendes Training ändern. */
+export type TrainingEvent = Extract<
+  TeamEvent,
+  { type: 'TrainingDurationChanged' | 'TrainingTopicChanged' | 'TrainingFocusChanged' }
+>;
+
+export type MatchScheduled = Extract<TeamEvent, { type: 'MatchScheduled' }>['data'];
+export type TrainingScheduled = Extract<TeamEvent, { type: 'TrainingScheduled' }>['data'];
