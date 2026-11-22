@@ -27,8 +27,11 @@ function event<Type extends string, Data extends z.ZodObject>(type: Type, data: 
 const empty = z.object({});
 const playerOnly = z.object({ playerId: playerIdSchema });
 const appointmentOnly = z.object({ appointmentId: appointmentIdSchema });
-const appointment = <Shape extends z.ZodRawShape>(shape: Shape) =>
-  z.object({ appointmentId: appointmentIdSchema, ...shape });
+
+/** `data` eines Termin-Events: `appointmentId` plus die Felder aus `shape`, mit ihren genauen Typen. */
+function appointment<Shape extends z.ZodRawShape>(shape: Shape) {
+  return z.object({ appointmentId: appointmentIdSchema, ...shape });
+}
 
 // 5.3.1 Team
 
