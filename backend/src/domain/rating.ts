@@ -10,7 +10,10 @@ export type RatingChange = RatingEvent | MatchRatingEvent | TrainingRatingEvent;
 /** Erzeugt ein Event im Team (`Team.#raise`): anwenden und als Pending Event vormerken. */
 export type RaiseRatingEvent = (event: RatingChange) => void;
 
-/** Regel 8: Leistungsnote von 1 bis 6 in halben Schritten. */
+/**
+ * Regel 8: Leistungsnote von 1 bis 6 in halben Schritten (1, 1,5, 2, …). Eine Note in halben
+ * Schritten ergibt verdoppelt eine ganze Zahl: 2,5 · 2 = 5, aber 2,25 · 2 = 4,5.
+ */
 function validGrade(grade: number): Result<number, DomainError> {
   const valid = Number.isInteger(grade * 2) && grade >= 1 && grade <= 6;
   return valid ? ok(grade) : err({ type: 'InvalidValue', field: 'grade' });
