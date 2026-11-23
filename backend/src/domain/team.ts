@@ -319,10 +319,14 @@ export class Team {
   //
   // Geprüft wird in dieser Reihenfolge: Team gelöscht, Termin unbekannt, Spieler nicht im Kader,
   // Spieler inaktiv (Regel 4), danach in der Bewertung: kein Einsatz (Regel 6), ungültiger Wert.
-  // `Result.combine` liefert den ersten Fehler in der Reihenfolge der Liste.
+  //
+  // `Result.combine([a, b])` fasst die Prüfungen von Termin und Spieler zusammen: Sind beide `Ok`,
+  // entsteht `Ok([termin, spieler])`, sonst der erste `Err` der Liste. Weil der Termin vorne steht,
+  // geht `AppointmentNotFound` vor `PlayerNotInSquad`. Beide Prüfungen laufen immer; sie lesen nur.
 
   gradePerformance(appointmentId: AppointmentId, playerId: PlayerId, grade: number): Result<void, DomainError> {
     return Result.combine([this.#appointment(appointmentId), this.#activePlayer(playerId)]).andThen(
+      // Destructuring: nimmt aus `[termin, spieler]` nur den Termin; der Spieler war nur zu prüfen.
       ([appointment]) => appointment.rating(playerId).gradePerformance(grade),
     );
   }
