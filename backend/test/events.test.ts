@@ -5,7 +5,7 @@ import { teamEventSchema } from '../src/domain/events.ts';
 const playerId = '7d4a2c1e-9b3f-4e8a-a6d2-5c1f0e9b8a7d';
 const appointmentId = '3b9e1f4a-2c7d-4e5b-9a8f-1d6c0b2e4f7a';
 
-/** Je Event-Typ aus 5.3.1 bis 5.3.5 ein gültiges Beispiel. */
+/** Je Event-Typ aus 5.3.1 bis 5.3.8 ein gültiges Beispiel. */
 const examples = [
   { type: 'TeamCreated', data: { teamId: 7, name: 'U19', season: '2026_27', tier: 'Kreisliga' } },
   { type: 'TeamCreated', data: { teamId: 7, name: 'U19', season: '2026_27', tier: null } },
@@ -65,6 +65,21 @@ const examples = [
   { type: 'TrainingDurationChanged', data: { appointmentId, minutes: 75 } },
   { type: 'TrainingTopicChanged', data: { appointmentId, topic: null } },
   { type: 'TrainingFocusChanged', data: { appointmentId, focus: ['goalkeeping'] } },
+  { type: 'PerformanceGraded', data: { appointmentId, playerId, grade: 2.5 } },
+  { type: 'PerformanceGradeWithdrawn', data: { appointmentId, playerId } },
+  { type: 'FairnessGraded', data: { appointmentId, playerId, grade: 2 } },
+  { type: 'FairnessGradeWithdrawn', data: { appointmentId, playerId } },
+  { type: 'AttributeRated', data: { appointmentId, playerId, attribute: 'gameIntelligence', stars: 4 } },
+  { type: 'RatingCommentWritten', data: { appointmentId, playerId } },
+  { type: 'RatingCommentRemoved', data: { appointmentId, playerId } },
+  { type: 'RatingReset', data: { appointmentId, playerId } },
+  { type: 'ParticipationRecorded', data: { appointmentId, playerId, participation: 'substitute' } },
+  { type: 'GoalsRecorded', data: { appointmentId, playerId, count: 2 } },
+  { type: 'AssistsRecorded', data: { appointmentId, playerId, count: 1 } },
+  { type: 'SavesRecorded', data: { appointmentId, playerId, count: 0 } },
+  { type: 'CardShown', data: { appointmentId, playerId, card: 'yellowRed' } },
+  { type: 'CardWithdrawn', data: { appointmentId, playerId, card: 'red' } },
+  { type: 'AttendanceRecorded', data: { appointmentId, playerId, attendance: 'unexcused' } },
 ];
 
 describe('teamEventSchema', () => {
@@ -74,8 +89,8 @@ describe('teamEventSchema', () => {
     });
   }
 
-  it('deckt alle Event-Typen aus 5.3.1 bis 5.3.5 ab', () => {
-    assert.equal(new Set(examples.map((e) => e.type)).size, 37);
+  it('deckt alle Event-Typen aus 5.3.1 bis 5.3.8 ab', () => {
+    assert.equal(new Set(examples.map((e) => e.type)).size, 52);
   });
 
   it('lehnt unbekannte Event-Typen ab', () => {
@@ -92,6 +107,9 @@ describe('teamEventSchema', () => {
       { type: 'AppointmentRescheduled', data: { appointmentId, date: '12.09.2026' } },
       { type: 'VenueChanged', data: { appointmentId, venue: 'heim' } },
       { type: 'TrainingFocusChanged', data: { appointmentId, focus: ['juggling'] } },
+      { type: 'AttributeRated', data: { appointmentId, playerId, attribute: 'speed', stars: 3 } },
+      { type: 'GoalsRecorded', data: { appointmentId, playerId, count: 1.5 } },
+      { type: 'CardShown', data: { appointmentId, playerId, card: 'blue' } },
     ]) {
       assert.equal(teamEventSchema.safeParse(invalid).success, false, JSON.stringify(invalid));
     }

@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { competitionSchema, focusSchema, positionSchema, venueSchema } from '../schemas/fieldValues.ts';
+import {
+  attendanceSchema,
+  attributeSchema,
+  cardSchema,
+  competitionSchema,
+  focusSchema,
+  participationSchema,
+  positionSchema,
+  venueSchema,
+} from '../schemas/fieldValues.ts';
 import { appointmentIdSchema, playerIdSchema, teamIdSchema } from '../schemas/ids.ts';
 
 // Events des Streams `team-{teamId}` (Spezifikation 5.3). Ein Event hat seinen Typ in `type`
@@ -31,6 +40,13 @@ const appointmentOnly = z.object({ appointmentId: appointmentIdSchema });
 /** `data` eines Termin-Events: `appointmentId` plus die Felder aus `shape`, mit ihren genauen Typen. */
 function appointment<Shape extends z.ZodRawShape>(shape: Shape) {
   return z.object({ appointmentId: appointmentIdSchema, ...shape });
+}
+
+const ratingOnly = z.object({ appointmentId: appointmentIdSchema, playerId: playerIdSchema });
+
+/** `data` eines Bewertungs-Events: `appointmentId` und `playerId` plus die Felder aus `shape`. */
+function rating<Shape extends z.ZodRawShape>(shape: Shape) {
+  return z.object({ appointmentId: appointmentIdSchema, playerId: playerIdSchema, ...shape });
 }
 
 // 5.3.1 Team
@@ -116,6 +132,36 @@ const trainingDurationChangedSchema = event('TrainingDurationChanged', appointme
 const trainingTopicChangedSchema = event('TrainingTopicChanged', appointment({ topic: z.string().nullable() }));
 const trainingFocusChangedSchema = event('TrainingFocusChanged', appointment({ focus: focusSchema }));
 
+// 5.3.6 Bewertungen (gemeinsam)
+
+const performanceGradedSchema = event('PerformanceGraded', rating({ grade: z.number() }));
+const performanceGradeWithdrawnSchema = event('PerformanceGradeWithdrawn', ratingOnly);
+const fairnessGradedSchema = event('FairnessGraded', rating({ grade: z.number().int() }));
+const fairnessGradeWithdrawnSchema = event('FairnessGradeWithdrawn', ratingOnly);
+const attributeRatedSchema = event(
+  'AttributeRated',
+  rating({ attribute: attributeSchema, stars: z.number().int() }),
+);
+const ratingCommentWrittenSchema = event('RatingCommentWritten', ratingOnly);
+const ratingCommentRemovedSchema = event('RatingCommentRemoved', ratingOnly);
+const ratingResetSchema = event('RatingReset', ratingOnly);
+
+// 5.3.7 Spielbewertung
+
+const participationRecordedSchema = event(
+  'ParticipationRecorded',
+  rating({ participation: participationSchema }),
+);
+const goalsRecordedSchema = event('GoalsRecorded', rating({ count: z.number().int() }));
+const assistsRecordedSchema = event('AssistsRecorded', rating({ count: z.number().int() }));
+const savesRecordedSchema = event('SavesRecorded', rating({ count: z.number().int() }));
+const cardShownSchema = event('CardShown', rating({ card: cardSchema }));
+const cardWithdrawnSchema = event('CardWithdrawn', rating({ card: cardSchema }));
+
+// 5.3.8 Trainingsbewertung
+
+const attendanceRecordedSchema = event('AttendanceRecorded', rating({ attendance: attendanceSchema }));
+
 export const teamEventSchema = z.discriminatedUnion('type', [
   teamCreatedSchema,
   teamRenamedSchema,
@@ -154,6 +200,21 @@ export const teamEventSchema = z.discriminatedUnion('type', [
   trainingDurationChangedSchema,
   trainingTopicChangedSchema,
   trainingFocusChangedSchema,
+  performanceGradedSchema,
+  performanceGradeWithdrawnSchema,
+  fairnessGradedSchema,
+  fairnessGradeWithdrawnSchema,
+  attributeRatedSchema,
+  ratingCommentWrittenSchema,
+  ratingCommentRemovedSchema,
+  ratingResetSchema,
+  participationRecordedSchema,
+  goalsRecordedSchema,
+  assistsRecordedSchema,
+  savesRecordedSchema,
+  cardShownSchema,
+  cardWithdrawnSchema,
+  attendanceRecordedSchema,
 ]);
 
 export type TeamEvent = z.infer<typeof teamEventSchema>;
@@ -187,6 +248,39 @@ export type TrainingEvent = Extract<
   TeamEvent,
   { type: 'TrainingDurationChanged' | 'TrainingTopicChanged' | 'TrainingFocusChanged' }
 >;
+
+/** Events, die eine Bewertung ändern, unabhängig von der Art des Termins. */
+export type RatingEvent = Extract<
+  TeamEvent,
+  {
+    type:
+      | 'PerformanceGraded'
+      | 'PerformanceGradeWithdrawn'
+      | 'FairnessGraded'
+      | 'FairnessGradeWithdrawn'
+      | 'AttributeRated'
+      | 'RatingCommentWritten'
+      | 'RatingCommentRemoved'
+      | 'RatingReset';
+  }
+>;
+
+/** Events, die eine Spielbewertung ändern. */
+export type MatchRatingEvent = Extract<
+  TeamEvent,
+  {
+    type:
+      | 'ParticipationRecorded'
+      | 'GoalsRecorded'
+      | 'AssistsRecorded'
+      | 'SavesRecorded'
+      | 'CardShown'
+      | 'CardWithdrawn';
+  }
+>;
+
+/** Events, die eine Trainingsbewertung ändern. */
+export type TrainingRatingEvent = Extract<TeamEvent, { type: 'AttendanceRecorded' }>;
 
 export type MatchScheduled = Extract<TeamEvent, { type: 'MatchScheduled' }>['data'];
 export type TrainingScheduled = Extract<TeamEvent, { type: 'TrainingScheduled' }>['data'];

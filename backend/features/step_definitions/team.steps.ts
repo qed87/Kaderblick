@@ -66,6 +66,10 @@ Given('{string} has been deactivated', function (this: KaderblickWorld, player: 
   this.team.given({ type: 'PlayerDeactivated', data: { playerId: this.team.playerId(player) } });
 });
 
+Given('{string} has been reactivated', function (this: KaderblickWorld, player: string) {
+  this.team.given({ type: 'PlayerReactivated', data: { playerId: this.team.playerId(player) } });
+});
+
 Given('the profile of {string} has been noted as changed', function (this: KaderblickWorld, player: string) {
   this.team.given({ type: 'PlayerProfileChanged', data: { playerId: this.team.playerId(player) } });
 });
