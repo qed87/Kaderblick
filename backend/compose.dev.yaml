@@ -1,0 +1,16 @@
+# Lokale KurrentDB für Entwicklung und Integrationstests:
+#   docker compose -f compose.dev.yaml up -d
+# Wie im Betrieb ohne TLS und ohne Projektionen (Spezifikation 8.1.1). Oberfläche: http://localhost:2113
+services:
+  kurrentdb:
+    image: kurrentplatform/kurrentdb:26.0.3
+    environment:
+      KURRENTDB_INSECURE: 'true'
+      KURRENTDB_RUN_PROJECTIONS: None
+    ports:
+      - '2113:2113'
+    volumes:
+      - kurrentdb-data:/var/lib/kurrentdb
+
+volumes:
+  kurrentdb-data:
