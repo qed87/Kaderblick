@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { jsonSchemaTransform, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import errorHandler from './plugins/errorHandler.ts';
+import kurrentDb from './plugins/kurrentDb.ts';
 import systemRoutes from './routes/system.ts';
 
 const API_PREFIX = '/api/v1';
@@ -15,6 +16,7 @@ async function app(fastify: FastifyInstance, opts: AppOptions) {
   fastify.setSerializerCompiler(serializerCompiler);
 
   await fastify.register(errorHandler);
+  await fastify.register(kurrentDb);
 
   // Keine Antwort landet im Browser-Cache (Spezifikation 6.1.4).
   fastify.addHook('onRequest', async (_request, reply) => {
